@@ -1,100 +1,111 @@
-# Stroke — local kayak motion studio
+# Stroke
 
-**Windows desktop edition:** see [DESKTOP.md](DESKTOP.md) for the dedicated Electron app, installer build, native project dialogs, recovery and tester instructions. The browser workflow below remains available for development.
+Stroke is a local kayak technique studio for reviewing sprint footage. It tracks an athlete, overlays a pose on the video, and provides tools for correcting joints, annotating the paddle, marking stroke events, and sketching an ideal movement.
 
-A first MVP for recorded sprint kayak footage. React/TypeScript (Vinext/Vite), Python/FastAPI and MediaPipe Pose. All video analysis happens on this computer; no account or cloud upload is used. The pose model is downloaded once during setup.
+The app is currently a **Windows desktop beta (v0.2.0)**. Analysis and project data stay on the computer; no account or cloud upload is required.
 
-## Open the app
+![Stroke body analysis](docs/screenshots/body-analysis.png)
 
-Run `Start-Stroke.ps1` from this folder. It starts both local services and opens http://127.0.0.1:3000/. `Stop-Stroke.ps1` stops the services started by that launcher. Logs are in `.local/`.
+## Current features
 
-This computer is already set up. On a fresh Windows installation, use Python 3.12, Node 24 and pnpm 11, then run `Setup-Stroke.ps1`. The setup script also recognizes Codex's bundled runtimes. Python dependencies and the frontend lockfile are pinned. Internet is needed for initial setup only.
+- Automatic pose tracking with progress and cancellation
+- Slow playback, frame stepping, looping, and wrist trails
+- Editable joint positions with local interpolation and undo/redo
+- Manual paddle and reference-point annotation
+- Catch and exit markers for either blade
+- 2D elbow, knee, and paddle/reference angles
+- An editable ideal-motion overlay for visual comparison
+- Portable, versioned `.stroke.json` projects
+- Native Windows file dialogs, crash recovery, and remembered video locations
 
-The interface is in European Portuguese; this file stays in English and quotes the
-on-screen labels verbatim, so the walkthrough still matches what you see.
+![Stroke paddle annotation workspace](docs/screenshots/paddle-annotation.png)
 
-The four numbered steps across the top of the window show where you are: open a
-video, pick the part, track the athlete, then review. A step lights up when it is
-your turn, gets a tick once it is done, and clicking it takes you to the control
-it describes.
+The interface is in European Portuguese. Low-confidence joints use hollow points and dashed bones so uncertain tracking remains visible.
 
-## First useful exercise
+## Install and run
 
-1. Click **Abrir projeto** and choose `examples/first-stroke.stroke.json`.
-2. Click **Escolher o vídeo original** and pick `videoplayback.mp4` in Downloads. A project stores your edits, not the footage, so the video has to be reconnected each time. This verifies its name, size, duration and dimensions; it is not a cryptographic content check.
-3. The 16.4–18.9 second shot already contains automatic tracking. Play it slowly. Hollow points and dashed bones indicate low-confidence estimates; confidence does not establish accuracy.
-4. Pause with **Corpo** selected and drag a dot to where the joint really is. Open **Ajuste fino** if you would rather pick the joint by name, place it with a click, or step it one pixel. Ctrl+Z and Ctrl+Y walk through the changes.
-5. Under **Pá**, place Pagaia A and B and Referência 1 and 2. A placed point shows a tick on its button. Mark more frames to interpolate the annotation. Keep the A→B and 1→2 directions consistent.
-6. Switch to **Ideal**, click **Criar movimento ideal** and adjust the orange skeleton. Replay the segment to compare it with the real one. Orange paddle points are editable too.
-7. Mark catches and exits with **Ataque** and **Saída** after choosing the blade above them; they appear as ticks on the bar under the video. Save with **Guardar** or Ctrl+S, and retain the original video file.
+The current release is built for Windows x64:
 
-For a new video, open it, drag the two pale handles on the bar under the video to
-the part you want (or type the two numbers under **TRECHO**), and click **Detetar o
-atleta**. When that button is unavailable, the line beside it says why. Keep one
-athlete in view and select a continuous shot without cuts. Automatic selection of a
-specific athlete among several is not implemented.
+1. Run `release/Stroke-0.2.0-Windows-x64-Setup.exe`.
+2. Install Stroke for the current Windows user.
+3. Open **Stroke** from the desktop or Start menu.
 
-## Colour
+The installer does not require administrator access, Python, or Node.js. The unpacked build is also available at `release/win-unpacked/Stroke.exe`; keep that folder together when moving it.
 
-The chrome is deliberately warm neutral and unsaturated. Saturated colour is
-reserved for the data drawn over the video, and on the corrected skeleton each limb
-carries its own hue: bone white torso, green left arm, cyan right arm, violet left
-leg, magenta right leg. Crossing arms are exactly where the tracker fails, and one
-flat colour used to hide it. Wrist trails inherit their arm's colour. Around that,
-orange is the proposed movement, yellow the paddle, dim grey the untouched estimate.
+For more detail about the packaged app, diagnostics, recovery, and release builds, see [DESKTOP.md](DESKTOP.md).
 
-## Reading the bar under the video
+## Basic workflow
 
-- The green band marks the frames that actually carry tracking.
-- The shaded box between the two pale handles is the part that will be analysed.
-- Catches hang from the bottom edge, exits from the top, so they read without relying on colour; the white line is the playhead.
-- Away from the analysed part the skeleton disappears, and the video says so rather than looking broken.
+1. Open a video and select a continuous segment of up to 120 seconds.
+2. Choose **Detetar o atleta** to run local pose tracking.
+3. Review the segment and drag misplaced joints into position.
+4. Use **Pá** to annotate the paddle and reference direction.
+5. Mark **Ataque** and **Saída**, or use **Ideal** to sketch a comparison pose.
+6. Save the session as a `.stroke.json` project with **Guardar** or `Ctrl+S`.
 
-## Messages
+Project files contain analysis and edits, but not the source video. Keep the original footage alongside the project or reconnect it when prompted.
 
-Confirmations appear as a toast in the bottom corner and clear themselves after a
-few seconds. Anything that needs a decision — a file that is too big, an analyzer
-that will not answer — stays until it is read and dismissed with its × or Escape.
-Nothing is left sitting on screen after it stops being true.
+## Project status
 
-## On a desktop
+Stroke is a functional editor prototype, not validated biomechanics software or an automatic coaching verdict.
 
-At 1200 px wide and 760 px tall or more the app stops behaving like a page and
-fills the window: the video takes whatever height the controls leave it, the tools
-scroll in their own column, and the working loop of watch, pause, drag, read the
-angles needs no scrolling at all. Below that threshold it falls back to ordinary
-page flow.
+Current limits:
 
-## What works
+- Tracking samples at up to 15 fps for responsive CPU analysis.
+- Measurements are 2D image-plane projections, not 3D motion or force estimates.
+- Paddle tracking and catch/exit detection are manual.
+- Occlusion, crossing limbs, clothing, multiple athletes, and camera cuts can reduce accuracy.
+- Video files are limited to 1 GB and analysis segments to 120 seconds.
+- The ideal pose is a free 2D sketch; it does not enforce limb lengths or render a new video.
+- The Windows installer is currently unsigned, with no automatic updater.
 
-- Local video selection, slow playback, nominal frame stepping, segment looping, keyboard playback/step controls. Space plays and pauses, ← and → step one frame, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+S saves; the same list sits behind the keyboard icon in the transport row.
-- Background pose tracking with progress and cancellation; temporary video copies are deleted after completion/cancellation/error. Job results expire after an hour when subsequent analyses start.
-- Immutable raw tracking, separate joint corrections and target offsets, 30-step undo/redo for edits.
-- Per-joint local corrections blend over approximately ±0.2 seconds for isolated edits. Nearby corrections can join into longer interpolated spans.
-- Target offsets interpolate between keys and hold at their endpoints. Changes to the corrected baseline also affect its target.
-- Manual paddle/reference annotations interpolate between keyframes only; outside that interval they are shown only within 0.04 seconds of a key. The paddle is not automatically tracked.
-- Image-plane elbow/knee angles and a directed 0–180° shaft/reference angle. Geometry accounts for video aspect ratio. Uncertain or degenerate joint angles are withheld.
-- Wrist trails, catch/exit timestamps, notes and versioned `.stroke.json` export/import. Videos are not embedded in project files. There is no automatic save; use **Guardar** before closing. Accented project names are transliterated for the exported filename.
+## Development
 
-## Limits to understand
+Requirements for a fresh development machine:
 
-- This is a tracking/editor prototype, not validated biomechanics or an automatic coaching verdict. Occluded hips/legs, crossing arms, loose clothing and camera cuts can produce wrong points even with high confidence.
-- No complete pose in a frame means no editable skeleton there. Nearby successful samples are interpolated only across short gaps with detections at both ends. Manual reconstruction of an entirely missing pose is a later improvement.
-- Tracking samples at up to 15 fps for a responsive CPU workflow. Original video playback is preserved. Frame stepping uses reported average FPS (assumed 30 until analysis); variable-frame-rate sources are approximate. Event times use video playback time, not a recovered capture time. Edited slow motion is unsuitable for physical stroke timing unless calibrated externally.
-- Upload limit: 1 GB. Analysis segment limit: 120 seconds. These are MVP resource limits, not accuracy thresholds.
-- Measurements are 2D projections. No true 3D rotation, force, speed prediction, centimetre calibration, automatic catch/exit detection or automatic paddle tracking.
-- The target is a free 2D sketch. Limb lengths and hand/paddle contact are not constrained. It does not automatically rewrite the video or produce a rendered video export.
-- Live ergometer input, synchronized cameras and 3D editing are later milestones.
+- Windows
+- Python 3.12
+- Node.js 24
+- pnpm 11
 
-## Development and validation
+Run `Setup-Stroke.ps1` once to install the pinned dependencies and pose model. Codex bundled runtimes are detected automatically when available.
 
-- Frontend: from `app`, `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`.
-- Backend: `.venv/Scripts/python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8766`.
-- Backend tests: `.venv/Scripts/python.exe -m pytest tests -q`.
-- Lint targets authored application/library/test files. Unmodified generated Shadcn components have separate pre-existing lint violations and are not rewritten by this project.
-- Geometry/interpolation/project validation and backend validation/cancellation tests are included. Real inference was exercised on both supplied videos, and sample overlays were inspected.
-- Browser QA has been performed for project import, video reconnection, the segment handles and their undo grouping, joint dragging and nudging, paddle placement, target creation, catch/exit marking, the mode switch, the fine-tuning drawer, toast dismissal and expiry, the confirmation dialog, and layout from 375 px up to 1920 x 1080. A full analysis run has not been driven from the browser; it was exercised through the backend directly.
-- Interface strings, joint names, the default project name and the sample project's own name and notes are European Portuguese. The optional WebMCP tool description stays in English, since it is read by software rather than by a person.
-- The optional, feature-detected `get_stroke_session` WebMCP read tool is not browser-verified. Unsupported browsers simply omit it.
+### Browser development
 
-Files: `app/app/Studio.tsx` is the editor, `app/lib/motion.ts` holds geometry and project logic, and `backend/main.py` handles local inference.
+```powershell
+./Start-Stroke.ps1
+```
+
+This starts the local frontend and analyzer at `http://127.0.0.1:3000`. Use `Stop-Stroke.ps1` to stop them.
+
+### Desktop development
+
+```powershell
+./Start-Desktop.ps1
+```
+
+### Validation
+
+```powershell
+cd app
+pnpm build
+pnpm typecheck
+pnpm lint
+pnpm test
+
+cd ..
+.venv/Scripts/python.exe -m pytest tests -q
+```
+
+The desktop smoke test covers the real renderer, authenticated local API, native project/video handling, decoding and inference, saving, reopening, and recovery. It can optionally refresh the README screenshots by setting `STROKE_SCREENSHOT_DIR` before running the test.
+
+## Repository layout
+
+```text
+app/       React and TypeScript editor
+backend/   FastAPI and MediaPipe analyzer
+desktop/   Electron shell and desktop smoke test
+examples/  Sample .stroke.json project
+```
+
+The core editor is in `app/app/Studio.tsx`, motion and project logic in `app/lib/motion.ts`, and the local analyzer in `backend/main.py`.

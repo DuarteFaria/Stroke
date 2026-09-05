@@ -3,6 +3,12 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 module.exports = async function smokeTest({ win, dialog, api, token, data }) {
+  const capture = async name => {
+    if (!process.env.STROKE_SCREENSHOT_DIR) return;
+    await fs.mkdir(process.env.STROKE_SCREENSHOT_DIR, { recursive: true });
+    const image = await win.webContents.capturePage();
+    await fs.writeFile(path.join(process.env.STROKE_SCREENSHOT_DIR, name), image.toPNG());
+  };
   const run = async code => {
     const result = await win.webContents.executeJavaScript(`(async () => { try { return { value: await (${code}) }; } catch (e) { return { error: String(e) }; } })()`);
     if (result.error) throw Error(`${result.error}; script: ${code.slice(0, 160)}`);
@@ -14,6 +20,8 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     throw Error(`Timed out: ${code}`);
   };
   const click = label => run(`(() => { const b = [...document.querySelectorAll('button')].find(b => { const copy = b.cloneNode(true); copy.querySelectorAll('.sr-only').forEach(n => n.remove()); return copy.textContent.trim() === ${JSON.stringify(label)}; }); if (!b || b.disabled) throw Error('Button unavailable: ' + ${JSON.stringify(label)}); b.click(); })()`);
+  const selectMode = value => run(`(() => { const input = document.querySelector('input[name="stroke-mode"][value="${value}"]'); if (!input || input.disabled) throw Error('Mode unavailable: ${value}'); input.click(); })()`);
+  const settle = () => run(`new Promise(resolve => setTimeout(resolve, 2000))`);
   assert.equal((await fetch(`${api}/health`)).status, 401);
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token, Origin: 'https://unrelated.example' } })).status, 403);
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } })).status, 200);
@@ -32,6 +40,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   nextOpen = process.env.STROKE_SMOKE_VIDEO;
   await click('Escolher o original');
   await waitFor(`document.querySelector('video')?.readyState >= 2`);
+  await capture('studio-overview.png');
   checks.push('native project open', 'native video open and decode');
   await click('Detetar o atleta');
   const original = JSON.parse(await fs.readFile(fixture, 'utf8'));
@@ -40,7 +49,16 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     await click('Detetar');
   }
   await waitFor(`document.body.innerText.includes('Atleta encontrado em')`, 90000);
+  await waitFor(`![...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Cancelar') && !document.body.innerText.includes('A detetar')`);
   checks.push('real inference through renderer');
+  await selectMode('paddle');
+  await waitFor(`document.querySelector('input[name="stroke-mode"][value="paddle"]')?.checked && document.body.innerText.includes('Marca A→B')`);
+  await settle();
+  await capture('paddle-annotation.png');
+  await selectMode('correct');
+  await waitFor(`document.querySelector('input[name="stroke-mode"][value="correct"]')?.checked && document.body.innerText.includes('Pausa e arrasta')`);
+  await settle();
+  await capture('body-analysis.png');
   await run(`(() => { const t = document.querySelector('textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, 'Desktop smoke: correção e recuperação'); t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   await click('Guardar');
   await waitFor(`document.body.innerText.includes('Projeto guardado.')`);
