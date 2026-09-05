@@ -1,0 +1,27 @@
+{
+  "name": "stroke-desktop",
+  "productName": "Stroke",
+  "version": "0.2.0",
+  "description": "Estúdio local de movimento em caiaque",
+  "author": "Stroke",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win --x64 --dir",
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": { "electron": "44.2.0", "electron-builder": "26.15.3" },
+  "build": {
+    "appId": "pt.stroke.studio",
+    "asar": true,
+    "directories": { "output": "../release" },
+    "files": ["*.cjs", "loading.html", "icon.png"],
+    "extraResources": [
+      { "from": "../app/desktop-dist", "to": "ui" },
+      { "from": "../build/analyzer/stroke-analyzer", "to": "analyzer" }
+    ],
+    "win": { "icon": "icon.ico", "target": "nsis", "artifactName": "Stroke-${version}-Windows-${arch}-Setup.${ext}" },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "deleteAppDataOnUninstall": false }
+  }
+}

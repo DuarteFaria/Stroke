@@ -1,0 +1,1243 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/* ----------------------------------------------------------------- palette
+   The chrome is warm neutral on purpose. Saturated colour is reserved for the
+   data drawn over the video: one hue per limb, orange for the proposed
+   movement, yellow for the paddle, grey for the untouched estimate. */
+:root {
+  --page: #131311;
+  --background: #1a1a17;
+  --panel: #1c1c18;
+  --panel-2: #171713;
+  --sunk: #0b0b09;
+  --line: #302e29;
+  --line-soft: #26241f;
+  --foreground: #f0eee7;
+  --text: #f0eee7;
+  --muted: #b0aba0;
+  --faint: #8b8779;
+  --control: #26251f;
+  --control-hover: #333229;
+  --control-line: #403e35;
+  --primary: #f0eee7;
+  --on-primary: #17160f;
+  --torso: #f2ede0;
+  --arm-l: #4ee08a;
+  --arm-r: #3fc8ff;
+  --leg-l: #b98cff;
+  --leg-r: #f45bd0;
+  --green: #4ee08a;
+  --orange: #ff9d4d;
+  --paddle: #ffd84d;
+  --warn: #ff7a5c;
+  --grip: #d8d3c6;
+  font-family: Inter, 'Segoe UI', sans-serif;
+  color: var(--text);
+  background: var(--page);
+  color-scheme: dark;
+  --color-popover: #232219;
+  --color-popover-foreground: #f0eee7;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+}
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #17160f;
+  --color-muted: #2b2a23;
+  --color-muted-foreground: #b0aba0;
+  --color-ring: #f0eee7;
+  --color-border: #3a382f;
+  --color-input: #46433a;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@keyframes stroke-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: stroke-spin 1s linear infinite;
+  flex: none;
+}
+
+/* --------------------------------------------------------------- controls */
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--control-line);
+  background: var(--control);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 9px 13px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+button:hover:not(:disabled),
+.button:hover {
+  background: var(--control-hover);
+}
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+button:focus-visible,
+.button:focus-within,
+summary:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+.primary {
+  background: var(--primary) !important;
+  border-color: var(--primary);
+  color: var(--on-primary);
+  font-weight: 650;
+}
+.primary:hover:not(:disabled) {
+  background: #ffffff !important;
+}
+.full {
+  width: 100%;
+}
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--panel-2);
+  border: 1px solid var(--control-line);
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 0;
+}
+input:focus,
+textarea:focus {
+  outline: 1px solid var(--text);
+}
+input:disabled,
+textarea:disabled {
+  opacity: 0.45;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toggle[data-disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+kbd {
+  font:
+    11px Consolas,
+    monospace;
+  background: var(--control);
+  border: 1px solid var(--control-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.sw.trail {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--arm-l), var(--arm-r));
+}
+.dim {
+  color: var(--faint);
+}
+.warn-text {
+  color: var(--warn) !important;
+}
+.ideal {
+  color: var(--orange);
+}
+
+/* ----------------------------------------------------------------- shell */
+.studio {
+  max-width: 1700px;
+  margin: auto;
+  padding: 0 26px 26px;
+}
+header {
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-right: 6px;
+}
+.chip > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--green);
+}
+.chip.warn {
+  color: var(--warn);
+}
+.chip.warn > i {
+  background: var(--warn);
+}
+.link {
+  border: 0;
+  background: none;
+  padding: 0 0 0 4px;
+  font-size: 12px;
+  color: inherit;
+  text-decoration: underline;
+}
+.link:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+}
+.unsaved {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+  flex: none;
+}
+h2 {
+  font-size: 19px;
+  font-weight: 550;
+  margin: 0 0 12px;
+}
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 1.4px;
+  color: var(--faint);
+  margin: 0;
+}
+
+/* -------------------------------------------------------------- video bar */
+/* Which video is loaded, and the one way to change it. Only shown once there
+   is a video — the empty stage already asks for the first one. */
+.videobar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.videobar small {
+  flex: none;
+  color: var(--faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.videobar button {
+  margin-left: auto;
+  flex: none;
+  padding: 6px 11px;
+  font-size: 12.5px;
+}
+.filename[data-empty] {
+  color: var(--faint);
+  font-weight: 500;
+}
+.filename {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------- workspace */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 16px;
+  align-items: start;
+}
+.viewer,
+aside {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+aside {
+  padding: 16px;
+}
+
+/* ------------------------------------------------------------ video stage */
+.stage {
+  background: var(--sunk);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-wrap {
+  position: relative;
+  width: 100%;
+}
+.stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.stage .overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.stage .handle {
+  cursor: grab;
+}
+.stage.placing .overlay {
+  cursor: crosshair;
+}
+.hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #0b0b09d9;
+  border: 1px solid #3a382f;
+  padding: 5px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  max-width: calc(100% - 20px);
+}
+.hud-time {
+  font:
+    12.5px Consolas,
+    monospace;
+}
+.hud-mode {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #0b0b09cc;
+  color: var(--text);
+}
+.stage-veil strong {
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.stage-note,
+.place-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #1a1a16f2;
+  border: 1px solid var(--control-line);
+  padding: 6px 11px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  max-width: calc(100% - 20px);
+  white-space: nowrap;
+}
+.stage-note > svg {
+  flex: none;
+  color: var(--warn);
+}
+.stage-note button,
+.place-hint button {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.place-hint {
+  border-color: var(--text);
+}
+.empty {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 32px;
+  color: var(--muted);
+}
+.empty h2 {
+  color: var(--text);
+  font-size: 23px;
+  margin-bottom: 8px;
+}
+.empty p {
+  margin: 0 0 18px;
+}
+
+/* --------------------------------------------------------------- timeline */
+.timeline {
+  padding: 14px 16px 0;
+}
+.scrub {
+  position: relative;
+  height: 38px;
+  touch-action: none;
+}
+.track {
+  position: absolute;
+  inset: 3px 0;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Percentage marks sit in a box inset by half a thumb, so they line up with
+   the native range thumbs stacked on top. */
+.track-inner {
+  position: absolute;
+  inset: 0 7px;
+}
+.band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #4ee08a33;
+  min-width: 2px;
+}
+.window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #f0eee70f;
+  border-left: 2px solid var(--grip);
+  border-right: 2px solid var(--grip);
+}
+/* Catch hangs from the bottom, exit from the top: legible without colour. */
+.tick {
+  position: absolute;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+}
+.tick.catch {
+  bottom: 0;
+  background: var(--green);
+}
+.tick.exit {
+  top: 0;
+  background: var(--orange);
+}
+/* Three native range inputs stacked over the drawn track: the playhead, and
+   one handle for each end of the part to analyse. */
+.range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 38px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.range:disabled {
+  opacity: 0.55;
+}
+.range::-webkit-slider-runnable-track {
+  height: 38px;
+  background: transparent;
+}
+.range::-moz-range-track {
+  height: 38px;
+  background: transparent;
+}
+.range-time {
+  cursor: pointer;
+}
+.range-time::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 38px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(#fff, #fff) center / 3px 100% no-repeat;
+  cursor: ew-resize;
+}
+.range-time::-moz-range-thumb {
+  width: 14px;
+  height: 38px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(#fff, #fff) center / 3px 100% no-repeat;
+  cursor: ew-resize;
+}
+/* Only the handles take the pointer, so a click anywhere else on the bar
+   still reaches the playhead underneath and scrubs. */
+.range-seg {
+  pointer-events: none;
+}
+.range-seg::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 14px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid #efebe0;
+  background: var(--grip);
+  cursor: ew-resize;
+}
+.range-seg::-moz-range-thumb {
+  pointer-events: auto;
+  width: 12px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid #efebe0;
+  background: var(--grip);
+  cursor: ew-resize;
+}
+.range-seg:disabled::-webkit-slider-thumb {
+  background: #55534a;
+  border-color: #63604f;
+  cursor: default;
+}
+.range-seg:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--panel),
+    0 0 0 4px var(--text);
+}
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--faint);
+  font:
+    11.5px Consolas,
+    monospace;
+  margin-top: 7px;
+}
+
+/* -------------------------------------------------------------- transport */
+.transport {
+  padding: 10px 16px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+}
+.transport [data-slot='select-trigger'] {
+  min-width: 68px;
+}
+.layers {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+.shortcuts {
+  position: relative;
+  font-size: 12px;
+}
+.shortcuts > summary {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+  padding: 6px;
+  border: 1px solid var(--control-line);
+  border-radius: 7px;
+}
+.shortcuts > summary::-webkit-details-marker {
+  display: none;
+}
+.shortcuts[open] > summary {
+  color: var(--text);
+  background: var(--control-hover);
+}
+.shortcuts ul {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 5;
+  list-style: none;
+  margin: 0;
+  padding: 11px 13px;
+  min-width: 190px;
+  display: grid;
+  gap: 7px;
+  background: #232219;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 26px #00000080;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------- analyse / progress */
+.analyse {
+  padding: 11px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+.segment-fields {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+}
+.segment-fields input {
+  width: 72px;
+  padding: 6px 7px;
+  font-size: 13px;
+}
+.segment-fields button {
+  font-size: 12px;
+  padding: 6px 9px;
+}
+.segment-fields .dash {
+  color: var(--faint);
+}
+.analyse-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.analyse-action small {
+  font-size: 11.5px;
+  max-width: 30ch;
+  text-align: right;
+}
+.job-progress {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.job-progress > div:last-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* ------------------------------------------------------------- angle strip */
+.angles {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.metric {
+  flex: 1 1 130px;
+  min-width: 0;
+  padding: 9px 14px;
+  border-right: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.metric > span {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.metric strong {
+  margin-left: auto;
+  font-size: 17px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.metric small {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.angles-note {
+  flex: none;
+  margin: 0;
+  padding: 9px 14px;
+  font-size: 11px;
+  color: var(--faint);
+  align-self: center;
+}
+
+/* ------------------------------------------------------- editing sidebar */
+.modes {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.modes > div:first-of-type {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.mode {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.mode input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.mode:hover {
+  background: var(--control);
+  color: var(--text);
+}
+.mode[data-active] {
+  background: var(--control-hover);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--control-line);
+}
+.mode:has(input:focus-visible) {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.undo {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+.undo button {
+  padding: 7px;
+  border: 0;
+}
+.help {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 14px 0 12px;
+}
+.field-label {
+  display: block;
+  font-size: 12.5px;
+  margin: 16px 0 6px;
+  color: var(--muted);
+}
+aside [data-slot='select-trigger'] {
+  width: 100%;
+}
+.picked {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.picked b {
+  color: var(--text);
+  font-weight: 600;
+}
+/* Dragging is the normal way to edit, so picking by name, click-to-place and
+   the one-pixel step stay folded away until someone needs them. */
+.fine {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.fine > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--muted);
+  list-style: none;
+}
+.fine > summary::-webkit-details-marker {
+  display: none;
+}
+.fine > summary::before {
+  content: '▸';
+  font-size: 10px;
+  color: var(--faint);
+}
+.fine[open] > summary::before {
+  content: '▾';
+}
+.fine > summary small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--faint);
+}
+.fine[open] > summary {
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+.fine-body {
+  padding: 11px;
+  display: grid;
+  gap: 9px;
+}
+.nudges {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.nudges span {
+  font-size: 12px;
+  color: var(--faint);
+}
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-rows: repeat(2, 26px);
+  gap: 3px;
+  flex: none;
+}
+.dpad button {
+  padding: 0;
+  font-size: 13px;
+}
+.dpad-up {
+  grid-area: 1 / 2;
+}
+.dpad-left {
+  grid-area: 2 / 1;
+}
+.dpad-down {
+  grid-area: 2 / 2;
+}
+.dpad-right {
+  grid-area: 2 / 3;
+}
+.paddle-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.paddle-buttons button {
+  font-size: 12.5px;
+  padding: 8px 6px;
+}
+.active {
+  border-color: var(--text) !important;
+  color: var(--text);
+}
+.target-intro {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  text-align: center;
+}
+.target-intro p {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+.events {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  gap: 7px;
+}
+.row button {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+}
+.event-list {
+  max-height: 150px;
+  overflow: auto;
+}
+.event {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+.event > button:first-child {
+  flex: 1;
+  justify-content: flex-start;
+  background: var(--panel-2);
+  border: 0;
+  font-size: 12px;
+}
+.event > button:last-child {
+  padding: 5px;
+  border: 0;
+}
+.event time {
+  margin-left: auto;
+  font:
+    11px Consolas,
+    monospace;
+  color: var(--muted);
+}
+.event i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+.catch {
+  background: var(--green);
+}
+.exit {
+  background: var(--orange);
+}
+.keyframes {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.key-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 84px;
+  overflow: auto;
+  margin-top: 8px;
+}
+.key-list button {
+  font:
+    11px Consolas,
+    monospace;
+  padding: 4px 5px;
+}
+textarea {
+  width: 100%;
+  height: 74px;
+  resize: vertical;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.service {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.6;
+  margin: 14px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* ------------------------------------------------------------------ toasts
+   A confirmation clears itself; a problem waits to be read and dismissed. */
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(400px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--faint);
+  background: #232219;
+  box-shadow: 0 12px 30px #000000a6;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.toast > svg:first-child {
+  flex: none;
+  margin-top: 1px;
+  color: var(--faint);
+}
+.toast > span {
+  flex: 1;
+  min-width: 0;
+}
+.toast > button {
+  flex: none;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--faint);
+}
+.toast > button:hover {
+  background: none;
+  color: var(--text);
+}
+.toast[data-tone='ok'] {
+  border-left-color: var(--green);
+}
+.toast[data-tone='ok'] > svg:first-child {
+  color: var(--green);
+}
+.toast[data-tone='warn'] {
+  border-left-color: var(--warn);
+  background: #291c17;
+}
+.toast[data-tone='warn'] > svg:first-child {
+  color: var(--warn);
+}
+.toast[data-tone='busy'] > svg:first-child {
+  color: var(--text);
+}
+
+/* ----------------------------------------------------------- shadcn bits */
+[data-slot='select-content'],
+[data-slot='alert-dialog-content'] {
+  background: #232219;
+  color: var(--foreground);
+}
+[data-slot='select-item'] {
+  font-size: 14px;
+}
+[data-slot='select-item'][data-highlighted] {
+  background: var(--control-hover);
+}
+[data-slot='alert-dialog-content'] {
+  max-width: 420px;
+}
+/* The stock footer is a muted tray with a hairline across the top. Every other
+   surface in Stroke is flat, so that seam read as a rendering fault. Flatten it
+   and let the buttons carry the hierarchy instead. */
+[data-slot='alert-dialog-footer'] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+/* One column, one width, at every size. Strung across a row the three buttons
+   each took their label's width and sat at their own distance from the next,
+   which read as noise on top of a question. Stacked, the eye runs down them:
+   what we suggest, the way that loses work, the way out. */
+[data-slot='alert-dialog-footer'] {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+}
+/* height:auto beats the Button component's h-9, so padding sets every height. */
+[data-slot='alert-dialog-footer'] > * {
+  width: 100%;
+  height: auto;
+  justify-content: center;
+  padding: 9px 13px;
+}
+.dialog-quiet {
+  border-color: var(--line);
+  background: none;
+  color: var(--muted);
+}
+.dialog-quiet:hover:not(:disabled) {
+  background: var(--control);
+  color: var(--text);
+}
+/* Loses work for good: warned, never filled — a filled button invites the click. */
+.dialog-danger {
+  border-color: #6b3326;
+  background: none;
+  color: var(--warn);
+}
+.dialog-danger:hover:not(:disabled) {
+  background: #2e1a15;
+}
+
+/* -------------------------------------------------- desktop: fill the screen
+   On a real desktop nothing should need scrolling during the working loop:
+   the video takes whatever height is left, the tools scroll on their own. */
+@media (min-width: 1200px) and (min-height: 760px) {
+  .studio {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  .workspace {
+    flex: 1;
+    min-height: 0;
+  }
+  .viewer {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .viewer > *:not(.stage) {
+    flex: none;
+  }
+  .stage {
+    flex: 1;
+    min-height: 180px;
+    container-type: size;
+  }
+  .video-wrap {
+    flex: none;
+    width: min(100cqw, calc(100cqh * var(--ar)));
+  }
+  .empty {
+    min-height: 0;
+  }
+  aside {
+    height: 100%;
+    overflow-y: auto;
+  }
+}
+@media (min-width: 1500px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+/* -------------------------------------------------------------- responsive */
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .studio {
+    padding: 0 14px 20px;
+  }
+}
+@media (max-width: 700px) {
+  .studio {
+    padding-inline: 12px;
+  }
+  header {
+    height: auto;
+    padding: 12px 0;
+    flex-wrap: wrap;
+  }
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header-actions button {
+    font-size: 12px;
+    padding: 8px;
+  }
+  .chip {
+    width: 100%;
+    order: 3;
+    margin: 0;
+  }
+  .videobar small {
+    display: none;
+  }
+  .layers {
+    margin-left: 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .analyse {
+    align-items: stretch;
+  }
+  .analyse-action {
+    justify-content: space-between;
+  }
+  .analyse-action small {
+    text-align: left;
+  }
+  .hud-mode {
+    display: none;
+  }
+  .toasts {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
