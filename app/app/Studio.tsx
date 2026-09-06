@@ -22,13 +22,13 @@ import {
   Plus,
   X,
   Flag,
-  MousePointer2,
   Info,
   CircleCheck,
   TriangleAlert,
   LoaderCircle,
   Check,
   Keyboard,
+  ChevronRight,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -824,8 +824,6 @@ export default function Studio() {
       ]),
     );
   }, [paddle, p.targetPaddle, time]);
-  const editable = mode === 'target' ? target : corrected;
-  const selectedPoint = editable?.[Number(selected)];
   const w = p.video.width,
     h = p.video.height;
   const tracked = p.frames.length > 0;
@@ -958,21 +956,6 @@ export default function Studio() {
       drag.current = null;
     }
   }
-  function nudge(dx: number, dy: number) {
-    if (!selectedPoint || busy) return;
-    video.current?.pause();
-    commit(
-      updatePoint(
-        selected,
-        {
-          ...selectedPoint,
-          x: clamp(selectedPoint.x + dx / w),
-          y: clamp(selectedPoint.y + dy / h),
-        },
-        current.current,
-      ),
-    );
-  }
   function mark(kind: 'Catch' | 'Exit') {
     commit({
       ...p,
@@ -1077,7 +1060,6 @@ export default function Studio() {
     (k) => k.t >= p.segment[0] && k.t <= p.segment[1],
   );
   const paddleKeyHere = p.paddle.some((k) => Math.abs(k.t - time) < 0.04);
-  const canEdit = !!selectedPoint && !busy && !!src;
   /** `tint` a null pinta cada membro da sua cor; senão a camada é toda igual. */
   function skeleton(
     points: Point[] | null,
@@ -1189,71 +1171,6 @@ export default function Studio() {
           </circle>
         ))}
       </g>
-    );
-  }
-  /** Arrastar é o normal; escolher pelo nome e o passo de 1 px ficam aqui. */
-  function fineTuning() {
-    return (
-      <>
-        <p className="picked">
-          {selectedPoint ? (
-            <>
-              <b>{JOINTS[Number(selected)]}</b> · {sure(selectedPoint.v)}
-            </>
-          ) : tracked ? (
-            'Carrega num ponto do vídeo.'
-          ) : (
-            'Sem corpo neste fotograma.'
-          )}
-        </p>
-        <details className="fine">
-          <summary>
-            Ajuste fino<small>nome, clique, 1 px</small>
-          </summary>
-          <div className="fine-body">
-            <Choice
-              label="Articulação"
-              value={selected}
-              onChange={setSelected}
-              items={Object.entries(JOINTS)}
-            />
-            <button
-              className="full"
-              disabled={!canEdit}
-              onClick={() => {
-                video.current?.pause();
-                setPlacing(selected);
-              }}
-            >
-              <MousePointer2 size={16} />
-              Colocar com um clique
-            </button>
-            <div className="nudges">
-              <span>1 px</span>
-              <div className="dpad">
-                {(
-                  [
-                    ['up', 0, -1, '↑', 'para cima'],
-                    ['left', -1, 0, '←', 'para a esquerda'],
-                    ['down', 0, 1, '↓', 'para baixo'],
-                    ['right', 1, 0, '→', 'para a direita'],
-                  ] as [string, number, number, string, string][]
-                ).map(([k, x, y, glyph, pt]) => (
-                  <button
-                    key={k}
-                    className={`dpad-${k}`}
-                    aria-label={`Mexer ${pt}`}
-                    disabled={!canEdit}
-                    onClick={() => nudge(x, y)}
-                  >
-                    {glyph}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </details>
-      </>
     );
   }
   return (
@@ -1759,15 +1676,6 @@ export default function Studio() {
                 </button>
               </div>
             </fieldset>
-            {mode === 'correct' && (
-              <>
-                <p className="help">
-                  Pausa e arrasta um ponto para o sítio certo. A correção
-                  suaviza-se nos fotogramas à volta.
-                </p>
-                {fineTuning()}
-              </>
-            )}
             {mode === 'paddle' && (
               <>
                 <p className="help">
@@ -1818,7 +1726,6 @@ export default function Studio() {
                     Arrasta o esqueleto laranja e compara com o real. É um
                     desenho livre: não respeita o comprimento dos membros.
                   </p>
-                  {fineTuning()}
                 </>
               ) : (
                 <div className="target-intro">
@@ -1900,60 +1807,143 @@ export default function Studio() {
                 </div>
               </div>
             )}
-            {src && <details>
-              <summary>Rever movimento ({reviewFlags.length})</summary>
-              <div className="key-list">
-                {reviewFlags.length === 0 ? <small>Sem saltos isolados sinalizados.</small> :
-                  reviewFlags.map(f => <button key={`${f.t}-${f.joint}`} disabled={busy}
-                    title={`${JOINTS[f.joint]}: ${f.kind === 'swap' ? 'possível troca de lados' : 'possível salto'}. Rever no vídeo.`}
-                    onClick={() => { video.current?.pause(); seek(f.t); setMode('correct'); setSelected(String(f.joint)); }}>
-                    {fmt(f.t)} · {JOINTS[f.joint]} · {f.kind === 'swap' ? 'troca?' : 'salto?'}
-                  </button>)}
-              </div>
-            </details>}
-            {src && <details>
-              <summary>Transições ({p.transitions?.length || 0})</summary>
-              <div className="key-list">
-                <button disabled={busy || (transitionStart !== null && time <= transitionStart)}
-                  title="Marca o início e o fim da transição; volta a detetar para aplicar."
-                  onClick={() => {
-                    video.current?.pause();
-                    if (transitionStart === null) { setTransitionStart(time); return; }
-                    const ranges: [number,number][] = [...(p.transitions || []), [transitionStart,time]];
-                    ranges.sort((a,b) => a[0]-b[0]);
-                    const merged: [number,number][] = [];
-                    for (const r of ranges) {
-                      const last = merged[merged.length-1];
-                      if (last && r[0] <= last[1]) last[1] = Math.max(last[1],r[1]);
-                      else merged.push([...r]);
+            {src && (
+              <details className="panel-section">
+                <summary>
+                  <ChevronRight size={13} className="chev" />
+                  <h3>Rever movimento</h3>
+                  <span className="count">{reviewFlags.length}</span>
+                </summary>
+                <p className="hint">
+                  Momentos em que a deteção pode ter falhado. Clica para ver no
+                  vídeo e corrigir.
+                </p>
+                {reviewFlags.length === 0 ? (
+                  <p className="empty">Nada a rever nesta remada.</p>
+                ) : (
+                  <div className="flag-list">
+                    {reviewFlags.map((f) => (
+                      <button
+                        className="flag"
+                        key={`${f.t}-${f.joint}`}
+                        disabled={busy}
+                        title={`${JOINTS[f.joint]}: ${f.kind === 'swap' ? 'possível troca de lados' : 'possível salto'}. Rever no vídeo.`}
+                        onClick={() => {
+                          video.current?.pause();
+                          seek(f.t);
+                          setMode('correct');
+                          setSelected(String(f.joint));
+                        }}
+                      >
+                        <time>{fmt(f.t)}</time>
+                        <span>{JOINTS[f.joint]}</span>
+                        <em>{f.kind === 'swap' ? 'troca?' : 'salto?'}</em>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </details>
+            )}
+            {src && (
+              <details className="panel-section">
+                <summary>
+                  <ChevronRight size={13} className="chev" />
+                  <h3>Transições</h3>
+                  <span className="count">{p.transitions?.length || 0}</span>
+                </summary>
+                <p className="hint">
+                  Marca os trechos em que não estás a remar — viragens, pausas.
+                  Volta a detetar para os aplicar.
+                </p>
+                <div className="row">
+                  <button
+                    disabled={
+                      busy || (transitionStart !== null && time <= transitionStart)
                     }
-                    if (merged.length > 100) { say('Máximo de 100 transições.', 'warn'); return; }
-                    commit({...p, transitions:merged}); setTransitionStart(null);
-                    say('Transição marcada. Volta a detetar para aplicar.', 'info');
-                  }}>
-                  {transitionStart === null ? 'Marcar início' : `Marcar fim (${fmt(transitionStart)})`}
-                </button>
-                {transitionStart !== null && <button disabled={busy} onClick={() => setTransitionStart(null)}>Cancelar</button>}
-                {(p.transitions || []).map(([a,b],i) => <span key={`${a}-${b}`}>
-                  <button disabled={busy} onClick={() => seek(a)}>{fmt(a)}–{fmt(b)}</button>
-                  <button disabled={busy} aria-label={`Remover transição ${i+1}`}
-                    onClick={() => commit({...p,transitions:p.transitions!.filter((_,j) => j!==i)})}><X size={12}/></button>
-                </span>)}
-              </div>
-            </details>}
-            <label className="field-label" htmlFor="notes">
-              Notas
-            </label>
-            <textarea
-              id="notes"
-              disabled={busy}
-              placeholder="O que mudavas nesta remada?"
-              value={p.notes}
-              onChange={(e) => {
-                setP({ ...p, notes: e.target.value });
-                setDirty(true);
-              }}
-            />
+                    onClick={() => {
+                      video.current?.pause();
+                      if (transitionStart === null) {
+                        setTransitionStart(time);
+                        return;
+                      }
+                      const ranges: [number, number][] = [
+                        ...(p.transitions || []),
+                        [transitionStart, time],
+                      ];
+                      ranges.sort((a, b) => a[0] - b[0]);
+                      const merged: [number, number][] = [];
+                      for (const r of ranges) {
+                        const last = merged[merged.length - 1];
+                        if (last && r[0] <= last[1])
+                          last[1] = Math.max(last[1], r[1]);
+                        else merged.push([...r]);
+                      }
+                      if (merged.length > 100) {
+                        say('Máximo de 100 transições.', 'warn');
+                        return;
+                      }
+                      commit({ ...p, transitions: merged });
+                      setTransitionStart(null);
+                      say('Transição marcada. Volta a detetar para aplicar.', 'info');
+                    }}
+                  >
+                    <Flag size={14} />
+                    {transitionStart === null
+                      ? 'Marcar início'
+                      : `Marcar fim (início ${fmt(transitionStart)})`}
+                  </button>
+                  {transitionStart !== null && (
+                    <button
+                      className="cancel"
+                      disabled={busy}
+                      onClick={() => setTransitionStart(null)}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+                {(p.transitions || []).length > 0 && (
+                  <div className="range-list">
+                    {(p.transitions || []).map(([a, b], i) => (
+                      <div className="range" key={`${a}-${b}`}>
+                        <button disabled={busy} onClick={() => seek(a)}>
+                          <time>
+                            {fmt(a)} – {fmt(b)}
+                          </time>
+                        </button>
+                        <button
+                          disabled={busy}
+                          aria-label={`Remover transição ${i + 1}`}
+                          onClick={() =>
+                            commit({
+                              ...p,
+                              transitions: p.transitions!.filter((_, j) => j !== i),
+                            })
+                          }
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </details>
+            )}
+            <div className="notes">
+              <label className="field-label" htmlFor="notes">
+                Notas
+              </label>
+              <textarea
+                id="notes"
+                disabled={busy}
+                placeholder="O que mudavas nesta remada?"
+                value={p.notes}
+                onChange={(e) => {
+                  setP({ ...p, notes: e.target.value });
+                  setDirty(true);
+                }}
+              />
+            </div>
           </div>
         </aside>
       </div>

@@ -828,82 +828,6 @@ aside [data-slot='select-trigger'] {
   color: var(--text);
   font-weight: 600;
 }
-/* Dragging is the normal way to edit, so picking by name, click-to-place and
-   the one-pixel step stay folded away until someone needs them. */
-.fine {
-  margin-top: 10px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel-2);
-}
-.fine > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 11px;
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--muted);
-  list-style: none;
-}
-.fine > summary::-webkit-details-marker {
-  display: none;
-}
-.fine > summary::before {
-  content: '▸';
-  font-size: 10px;
-  color: var(--faint);
-}
-.fine[open] > summary::before {
-  content: '▾';
-}
-.fine > summary small {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--faint);
-}
-.fine[open] > summary {
-  color: var(--text);
-  border-bottom: 1px solid var(--line);
-}
-.fine-body {
-  padding: 11px;
-  display: grid;
-  gap: 9px;
-}
-.nudges {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.nudges span {
-  font-size: 12px;
-  color: var(--faint);
-}
-.dpad {
-  display: grid;
-  grid-template-columns: repeat(3, 30px);
-  grid-template-rows: repeat(2, 26px);
-  gap: 3px;
-  flex: none;
-}
-.dpad button {
-  padding: 0;
-  font-size: 13px;
-}
-.dpad-up {
-  grid-area: 1 / 2;
-}
-.dpad-left {
-  grid-area: 2 / 1;
-}
-.dpad-down {
-  grid-area: 2 / 2;
-}
-.dpad-right {
-  grid-area: 2 / 3;
-}
 .paddle-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1004,6 +928,126 @@ aside [data-slot='select-trigger'] {
     11px Consolas,
     monospace;
   padding: 4px 5px;
+}
+
+/* ------------------------------------------ collapsible sidebar sections
+   Rever movimento e Transições dobram-se; o cabeçalho lê-se como os outros. */
+.panel-section {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.panel-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text);
+}
+.panel-section > summary::-webkit-details-marker {
+  display: none;
+}
+.panel-section > summary .chev {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.panel-section[open] > summary .chev {
+  transform: rotate(90deg);
+}
+.panel-section > summary .count {
+  margin-left: auto;
+  font:
+    11px Consolas,
+    monospace;
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.panel-section .hint {
+  font-size: 12px;
+  color: var(--faint);
+  line-height: 1.55;
+  margin: 10px 0;
+}
+.panel-section .empty {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0;
+}
+.flag-list {
+  display: grid;
+  gap: 4px;
+  max-height: 156px;
+  overflow: auto;
+}
+.flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border: 0;
+  font-size: 12px;
+}
+.flag time {
+  flex: none;
+  font:
+    11px Consolas,
+    monospace;
+  color: var(--muted);
+}
+.flag span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flag em {
+  margin-left: auto;
+  flex: none;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--orange);
+}
+.cancel {
+  flex: none !important;
+  font-size: 12.5px;
+}
+.range-list {
+  display: grid;
+  gap: 4px;
+  max-height: 120px;
+  overflow: auto;
+  margin-top: 8px;
+}
+.range {
+  display: flex;
+  gap: 3px;
+}
+.range > button:first-child {
+  flex: 1;
+  justify-content: flex-start;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border: 0;
+}
+.range > button:last-child {
+  padding: 5px;
+  border: 0;
+}
+.range time {
+  font:
+    11px Consolas,
+    monospace;
+  color: var(--muted);
+}
+.notes {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
 }
 textarea {
   width: 100%;
