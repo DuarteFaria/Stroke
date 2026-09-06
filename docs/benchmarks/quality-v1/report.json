@@ -1,0 +1,461 @@
+[
+  {
+    "name": "back2 full15",
+    "segment": [
+      0,
+      1.3666666666666667
+    ],
+    "samples": 21,
+    "detectedSamples": 20,
+    "missingSamples": 1,
+    "poseCoveragePercent": 95.23809523809524,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      },
+      "right_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      },
+      "left_elbow": {
+        "usableSamples": 10,
+        "coveragePercent": 47.61904761904762
+      },
+      "right_elbow": {
+        "usableSamples": 12,
+        "coveragePercent": 57.142857142857146
+      },
+      "left_wrist": {
+        "usableSamples": 9,
+        "coveragePercent": 42.857142857142854
+      },
+      "right_wrist": {
+        "usableSamples": 10,
+        "coveragePercent": 47.61904761904762
+      },
+      "left_hip": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      },
+      "right_hip": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "full15",
+    "elapsedSeconds": 0.7450693999999203,
+    "sampleFps": 15.0,
+    "model": "pose_landmarker_full.task"
+  },
+  {
+    "name": "back2 heavy15",
+    "segment": [
+      0,
+      1.3666666666666667
+    ],
+    "samples": 21,
+    "detectedSamples": 20,
+    "missingSamples": 1,
+    "poseCoveragePercent": 95.23809523809524,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      },
+      "right_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      },
+      "left_elbow": {
+        "usableSamples": 0,
+        "coveragePercent": 0.0
+      },
+      "right_elbow": {
+        "usableSamples": 5,
+        "coveragePercent": 23.80952380952381
+      },
+      "left_wrist": {
+        "usableSamples": 0,
+        "coveragePercent": 0.0
+      },
+      "right_wrist": {
+        "usableSamples": 10,
+        "coveragePercent": 47.61904761904762
+      },
+      "left_hip": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      },
+      "right_hip": {
+        "usableSamples": 20,
+        "coveragePercent": 95.23809523809524
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "heavy15",
+    "elapsedSeconds": 1.2307455000118352,
+    "sampleFps": 15.0,
+    "model": "pose_landmarker_heavy.task"
+  },
+  {
+    "name": "back2 heavy30",
+    "segment": [
+      0,
+      1.3666666666666667
+    ],
+    "samples": 41,
+    "detectedSamples": 40,
+    "missingSamples": 1,
+    "poseCoveragePercent": 97.5609756097561,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 40,
+        "coveragePercent": 97.5609756097561
+      },
+      "right_shoulder": {
+        "usableSamples": 40,
+        "coveragePercent": 97.5609756097561
+      },
+      "left_elbow": {
+        "usableSamples": 0,
+        "coveragePercent": 0.0
+      },
+      "right_elbow": {
+        "usableSamples": 7,
+        "coveragePercent": 17.073170731707318
+      },
+      "left_wrist": {
+        "usableSamples": 2,
+        "coveragePercent": 4.878048780487805
+      },
+      "right_wrist": {
+        "usableSamples": 15,
+        "coveragePercent": 36.58536585365854
+      },
+      "left_hip": {
+        "usableSamples": 40,
+        "coveragePercent": 97.5609756097561
+      },
+      "right_hip": {
+        "usableSamples": 40,
+        "coveragePercent": 97.5609756097561
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "heavy30",
+    "elapsedSeconds": 1.9896473999833688,
+    "sampleFps": 30.0,
+    "model": "pose_landmarker_heavy.task"
+  },
+  {
+    "name": "shortclose1 full15",
+    "segment": [
+      0,
+      1.3333333333333333
+    ],
+    "samples": 20,
+    "detectedSamples": 20,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 5,
+        "coveragePercent": 25.0
+      },
+      "right_elbow": {
+        "usableSamples": 19,
+        "coveragePercent": 95.0
+      },
+      "left_wrist": {
+        "usableSamples": 5,
+        "coveragePercent": 25.0
+      },
+      "right_wrist": {
+        "usableSamples": 15,
+        "coveragePercent": 75.0
+      },
+      "left_hip": {
+        "usableSamples": 14,
+        "coveragePercent": 70.0
+      },
+      "right_hip": {
+        "usableSamples": 11,
+        "coveragePercent": 55.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "full15",
+    "elapsedSeconds": 0.6292219000170007,
+    "sampleFps": 15.0,
+    "model": "pose_landmarker_full.task"
+  },
+  {
+    "name": "shortclose1 heavy15",
+    "segment": [
+      0,
+      1.3333333333333333
+    ],
+    "samples": 20,
+    "detectedSamples": 20,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 3,
+        "coveragePercent": 15.0
+      },
+      "right_elbow": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "left_wrist": {
+        "usableSamples": 4,
+        "coveragePercent": 20.0
+      },
+      "right_wrist": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "left_hip": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 20,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "heavy15",
+    "elapsedSeconds": 1.1547950999811292,
+    "sampleFps": 15.0,
+    "model": "pose_landmarker_heavy.task"
+  },
+  {
+    "name": "shortclose1 heavy30",
+    "segment": [
+      0,
+      1.3333333333333333
+    ],
+    "samples": 40,
+    "detectedSamples": 40,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 40,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 40,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 13,
+        "coveragePercent": 32.5
+      },
+      "right_elbow": {
+        "usableSamples": 40,
+        "coveragePercent": 100.0
+      },
+      "left_wrist": {
+        "usableSamples": 15,
+        "coveragePercent": 37.5
+      },
+      "right_wrist": {
+        "usableSamples": 40,
+        "coveragePercent": 100.0
+      },
+      "left_hip": {
+        "usableSamples": 40,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 40,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "heavy30",
+    "elapsedSeconds": 1.9278713000239804,
+    "sampleFps": 30.0,
+    "model": "pose_landmarker_heavy.task"
+  },
+  {
+    "name": "diagonal1 full15",
+    "segment": [
+      0,
+      2.4
+    ],
+    "samples": 36,
+    "detectedSamples": 36,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_elbow": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "left_wrist": {
+        "usableSamples": 35,
+        "coveragePercent": 97.22222222222223
+      },
+      "right_wrist": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "left_hip": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "full15",
+    "elapsedSeconds": 0.8704956999863498,
+    "sampleFps": 15.0,
+    "model": "pose_landmarker_full.task"
+  },
+  {
+    "name": "diagonal1 heavy15",
+    "segment": [
+      0,
+      2.4
+    ],
+    "samples": 36,
+    "detectedSamples": 36,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_elbow": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "left_wrist": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_wrist": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "left_hip": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 36,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "heavy15",
+    "elapsedSeconds": 1.878633100015577,
+    "sampleFps": 15.0,
+    "model": "pose_landmarker_heavy.task"
+  },
+  {
+    "name": "diagonal1 heavy30",
+    "segment": [
+      0,
+      2.4
+    ],
+    "samples": 72,
+    "detectedSamples": 72,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 69,
+        "coveragePercent": 95.83333333333333
+      },
+      "right_elbow": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      },
+      "left_wrist": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      },
+      "right_wrist": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      },
+      "left_hip": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 72,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "variant": "heavy30",
+    "elapsedSeconds": 3.320664200000465,
+    "sampleFps": 30.0,
+    "model": "pose_landmarker_heavy.task"
+  }
+]

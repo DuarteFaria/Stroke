@@ -1,0 +1,161 @@
+{
+  "status": "provisional visual annotations; not validated ground truth",
+  "coordinateSystem": "960x540 image pixels, excludes sheet title strips",
+  "uncertaintyPixels": 15,
+  "annotations": [
+    {
+      "clip": "shortclose1",
+      "frameIndex": 8,
+      "t": 0.26666666666666666,
+      "points": {
+        "13": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "14": {
+          "x": 450,
+          "y": 285,
+          "status": "approximate"
+        },
+        "15": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "16": {
+          "x": 670,
+          "y": 211,
+          "status": "approximate"
+        }
+      }
+    },
+    {
+      "clip": "shortclose1",
+      "frameIndex": 20,
+      "t": 0.6666666666666666,
+      "points": {
+        "13": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "14": {
+          "x": 478,
+          "y": 338,
+          "status": "approximate"
+        },
+        "15": {
+          "x": 500,
+          "y": 98,
+          "status": "approximate"
+        },
+        "16": {
+          "x": 690,
+          "y": 315,
+          "status": "approximate"
+        }
+      }
+    },
+    {
+      "clip": "shortclose1",
+      "frameIndex": 32,
+      "t": 1.0666666666666667,
+      "points": {
+        "13": {
+          "x": 477,
+          "y": 292,
+          "status": "approximate"
+        },
+        "14": {
+          "x": 248,
+          "y": 435,
+          "status": "approximate"
+        },
+        "15": {
+          "x": 598,
+          "y": 185,
+          "status": "approximate"
+        },
+        "16": {
+          "x": 344,
+          "y": 485,
+          "status": "approximate"
+        }
+      }
+    },
+    {
+      "clip": "back2",
+      "frameIndex": 8,
+      "t": 0.26666666666666666,
+      "points": {
+        "13": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "14": {
+          "x": 530,
+          "y": 223,
+          "status": "approximate"
+        },
+        "15": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "16": {
+          "x": 500,
+          "y": 177,
+          "status": "approximate"
+        }
+      }
+    },
+    {
+      "clip": "back2",
+      "frameIndex": 20,
+      "t": 0.6666666666666666,
+      "points": {
+        "13": {
+          "x": 382,
+          "y": 290,
+          "status": "approximate"
+        },
+        "14": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "15": {
+          "x": 338,
+          "y": 300,
+          "status": "approximate"
+        },
+        "16": {
+          "x": 414,
+          "y": 207,
+          "status": "approximate"
+        }
+      }
+    },
+    {
+      "clip": "back2",
+      "frameIndex": 32,
+      "t": 1.0666666666666667,
+      "points": {
+        "13": {
+          "x": 364,
+          "y": 260,
+          "status": "approximate"
+        },
+        "14": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        },
+        "15": {
+          "x": 334,
+          "y": 222,
+          "status": "approximate"
+        },
+        "16": {
+          "status": "unscorable",
+          "reason": "occluded or ambiguous in this view"
+        }
+      }
+    }
+  ]
+}

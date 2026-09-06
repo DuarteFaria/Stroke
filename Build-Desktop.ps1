@@ -29,7 +29,8 @@ try {
         Invoke-StrokeBuild { & .venv/Scripts/python.exe -m pip install -r requirements-desktop.txt }
         Invoke-StrokeBuild { & .venv/Scripts/python.exe backend/setup_model.py }
         $strokeModelData = (Join-Path $strokeRoot 'models/pose_landmarker_full.task') + ';models'
-        Invoke-StrokeBuild { & .venv/Scripts/python.exe -m PyInstaller --noconfirm --onedir --name stroke-analyzer --distpath build/analyzer --workpath build/pyinstaller --specpath build --paths . --collect-all mediapipe --collect-all uvicorn --add-data $strokeModelData backend/desktop_entry.py }
+        $strokeHeavyData = (Join-Path $strokeRoot 'models/pose_landmarker_heavy.task') + ';models'
+        Invoke-StrokeBuild { & .venv/Scripts/python.exe -m PyInstaller --noconfirm --onedir --name stroke-analyzer --distpath build/analyzer --workpath build/pyinstaller --specpath build --paths . --collect-all mediapipe --collect-all uvicorn --add-data $strokeModelData --add-data $strokeHeavyData backend/desktop_entry.py }
     }
     Push-Location app
     try {

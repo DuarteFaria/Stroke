@@ -1,0 +1,729 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-06T11:12:12Z",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.14",
+  "commit": "8b512267537340b96c49f002844ef8fc6cf9f159",
+  "workingTreeStatus": " M README.md\n?? backend/benchmark.py\n?? backend/benchmark_videos.py\n?? docs/DETECTION-PLAN.md\n?? docs/benchmarks/\n?? tests/test_benchmark.py\n",
+  "analyzerSha256": "c05c7a67c124193dbc38c089c925990196ab9c7bd65735d13f4079f788c849e6",
+  "model": "pose_landmarker_full.task",
+  "modelSha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+  "settings": {
+    "maxSampleFps": 15,
+    "maxImageDimension": 1280,
+    "numPoses": 1,
+    "detectionConfidence": 0.4,
+    "presenceConfidence": 0.4,
+    "trackingConfidence": 0.5
+  },
+  "reports": [
+    {
+      "name": "back1 baseline",
+      "segment": [
+        0,
+        1.8
+      ],
+      "samples": 27,
+      "detectedSamples": 27,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 27,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 27,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 12,
+          "coveragePercent": 44.44444444444444
+        },
+        "right_elbow": {
+          "usableSamples": 27,
+          "coveragePercent": 100.0
+        },
+        "left_wrist": {
+          "usableSamples": 19,
+          "coveragePercent": 70.37037037037037
+        },
+        "right_wrist": {
+          "usableSamples": 17,
+          "coveragePercent": 62.96296296296296
+        },
+        "left_hip": {
+          "usableSamples": 27,
+          "coveragePercent": 100.0
+        },
+        "right_hip": {
+          "usableSamples": 27,
+          "coveragePercent": 100.0
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "back1.mp4",
+      "sourceSha256": "2cd3ca37d1e3aa45b8f3264f996d4bc9de31f5199feb5c9676e649fdda725569",
+      "elapsedSeconds": 1.073578599956818,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "back1.mp4",
+        "size": 4405466,
+        "duration": 1.8,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "back2 baseline",
+      "segment": [
+        0,
+        1.3666666666666667
+      ],
+      "samples": 21,
+      "detectedSamples": 20,
+      "missingSamples": 1,
+      "poseCoveragePercent": 95.23809523809524,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 20,
+          "coveragePercent": 95.23809523809524
+        },
+        "right_shoulder": {
+          "usableSamples": 20,
+          "coveragePercent": 95.23809523809524
+        },
+        "left_elbow": {
+          "usableSamples": 10,
+          "coveragePercent": 47.61904761904762
+        },
+        "right_elbow": {
+          "usableSamples": 12,
+          "coveragePercent": 57.142857142857146
+        },
+        "left_wrist": {
+          "usableSamples": 9,
+          "coveragePercent": 42.857142857142854
+        },
+        "right_wrist": {
+          "usableSamples": 10,
+          "coveragePercent": 47.61904761904762
+        },
+        "left_hip": {
+          "usableSamples": 20,
+          "coveragePercent": 95.23809523809524
+        },
+        "right_hip": {
+          "usableSamples": 20,
+          "coveragePercent": 95.23809523809524
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "back2.mp4",
+      "sourceSha256": "1757b8272d3498991ddc65f3d656bb2c3eee2512d7b7a38ac24ca12eb134974c",
+      "elapsedSeconds": 1.0910890999948606,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "back2.mp4",
+        "size": 4087235,
+        "duration": 1.3666666666666667,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "diagonal1 baseline",
+      "segment": [
+        0,
+        2.4
+      ],
+      "samples": 36,
+      "detectedSamples": 36,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        },
+        "right_elbow": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        },
+        "left_wrist": {
+          "usableSamples": 35,
+          "coveragePercent": 97.22222222222223
+        },
+        "right_wrist": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        },
+        "left_hip": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        },
+        "right_hip": {
+          "usableSamples": 36,
+          "coveragePercent": 100.0
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "diagonal1.mp4",
+      "sourceSha256": "29769babd0a867edd4e0d277c9ea46abed36306521035e940b4d8c8000d1d0e3",
+      "elapsedSeconds": 1.771081699989736,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "diagonal1.mp4",
+        "size": 5907985,
+        "duration": 2.4,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "diagonalTransition1 baseline",
+      "segment": [
+        0,
+        5.133333333333334
+      ],
+      "samples": 77,
+      "detectedSamples": 77,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 77,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 77,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 65,
+          "coveragePercent": 84.41558441558442
+        },
+        "right_elbow": {
+          "usableSamples": 59,
+          "coveragePercent": 76.62337662337663
+        },
+        "left_wrist": {
+          "usableSamples": 60,
+          "coveragePercent": 77.92207792207792
+        },
+        "right_wrist": {
+          "usableSamples": 56,
+          "coveragePercent": 72.72727272727273
+        },
+        "left_hip": {
+          "usableSamples": 39,
+          "coveragePercent": 50.64935064935065
+        },
+        "right_hip": {
+          "usableSamples": 39,
+          "coveragePercent": 50.64935064935065
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "diagonalTransition1.mp4",
+      "sourceSha256": "b1e629b009068ad51bbf758dbb57a48eb19f4fbd4df7fe55cb9ac22139d0ef1f",
+      "elapsedSeconds": 3.440073099976871,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "diagonalTransition1.mp4",
+        "size": 10801373,
+        "duration": 5.133333333333334,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "front1 baseline",
+      "segment": [
+        0,
+        8.233333333333333
+      ],
+      "samples": 124,
+      "detectedSamples": 122,
+      "missingSamples": 2,
+      "poseCoveragePercent": 98.38709677419355,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        },
+        "right_shoulder": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        },
+        "left_elbow": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        },
+        "right_elbow": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        },
+        "left_wrist": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        },
+        "right_wrist": {
+          "usableSamples": 118,
+          "coveragePercent": 95.16129032258064
+        },
+        "left_hip": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        },
+        "right_hip": {
+          "usableSamples": 122,
+          "coveragePercent": 98.38709677419355
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "front1.mp4",
+      "sourceSha256": "5804cd60f6367bbc995b796799c920260f5675ed181227b0a218b442b9207b11",
+      "elapsedSeconds": 5.077637400012463,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "front1.mp4",
+        "size": 20185305,
+        "duration": 8.233333333333333,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "multiple1 baseline",
+      "segment": [
+        0,
+        7.9
+      ],
+      "samples": 119,
+      "detectedSamples": 114,
+      "missingSamples": 5,
+      "poseCoveragePercent": 95.7983193277311,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 114,
+          "coveragePercent": 95.7983193277311
+        },
+        "right_shoulder": {
+          "usableSamples": 114,
+          "coveragePercent": 95.7983193277311
+        },
+        "left_elbow": {
+          "usableSamples": 70,
+          "coveragePercent": 58.8235294117647
+        },
+        "right_elbow": {
+          "usableSamples": 114,
+          "coveragePercent": 95.7983193277311
+        },
+        "left_wrist": {
+          "usableSamples": 76,
+          "coveragePercent": 63.865546218487395
+        },
+        "right_wrist": {
+          "usableSamples": 114,
+          "coveragePercent": 95.7983193277311
+        },
+        "left_hip": {
+          "usableSamples": 114,
+          "coveragePercent": 95.7983193277311
+        },
+        "right_hip": {
+          "usableSamples": 114,
+          "coveragePercent": 95.7983193277311
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "multiple1.mp4",
+      "sourceSha256": "01a8ab566e662bfee88258cc3948fa6de81e91ab097ee130a27dde2087c79705",
+      "elapsedSeconds": 5.129111999995075,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "multiple1.mp4",
+        "size": 18750272,
+        "duration": 7.9,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "multiple2 baseline",
+      "segment": [
+        0,
+        7.933333333333334
+      ],
+      "samples": 119,
+      "detectedSamples": 117,
+      "missingSamples": 2,
+      "poseCoveragePercent": 98.31932773109244,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 117,
+          "coveragePercent": 98.31932773109244
+        },
+        "right_shoulder": {
+          "usableSamples": 117,
+          "coveragePercent": 98.31932773109244
+        },
+        "left_elbow": {
+          "usableSamples": 117,
+          "coveragePercent": 98.31932773109244
+        },
+        "right_elbow": {
+          "usableSamples": 94,
+          "coveragePercent": 78.99159663865547
+        },
+        "left_wrist": {
+          "usableSamples": 117,
+          "coveragePercent": 98.31932773109244
+        },
+        "right_wrist": {
+          "usableSamples": 90,
+          "coveragePercent": 75.63025210084034
+        },
+        "left_hip": {
+          "usableSamples": 116,
+          "coveragePercent": 97.47899159663865
+        },
+        "right_hip": {
+          "usableSamples": 117,
+          "coveragePercent": 98.31932773109244
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "multiple2.mp4",
+      "sourceSha256": "dee05c620d95328bd1f0a5c5021523cc62312a081380f2915f3b64d07c7001e6",
+      "elapsedSeconds": 5.014486100000795,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "multiple2.mp4",
+        "size": 19357187,
+        "duration": 7.933333333333334,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "shortclose1 baseline",
+      "segment": [
+        0,
+        1.3333333333333333
+      ],
+      "samples": 20,
+      "detectedSamples": 20,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 20,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 20,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 5,
+          "coveragePercent": 25.0
+        },
+        "right_elbow": {
+          "usableSamples": 19,
+          "coveragePercent": 95.0
+        },
+        "left_wrist": {
+          "usableSamples": 5,
+          "coveragePercent": 25.0
+        },
+        "right_wrist": {
+          "usableSamples": 15,
+          "coveragePercent": 75.0
+        },
+        "left_hip": {
+          "usableSamples": 14,
+          "coveragePercent": 70.0
+        },
+        "right_hip": {
+          "usableSamples": 11,
+          "coveragePercent": 55.0
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "shortclose1.mp4",
+      "sourceSha256": "b5266a380870612db4f58b70b3196c20735d88a378becf761a3e941f2297d63a",
+      "elapsedSeconds": 1.0304836999857798,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "shortclose1.mp4",
+        "size": 3381716,
+        "duration": 1.3333333333333333,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "side1 baseline",
+      "segment": [
+        0,
+        1.9
+      ],
+      "samples": 29,
+      "detectedSamples": 29,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 29,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 29,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 16,
+          "coveragePercent": 55.172413793103445
+        },
+        "right_elbow": {
+          "usableSamples": 29,
+          "coveragePercent": 100.0
+        },
+        "left_wrist": {
+          "usableSamples": 14,
+          "coveragePercent": 48.275862068965516
+        },
+        "right_wrist": {
+          "usableSamples": 29,
+          "coveragePercent": 100.0
+        },
+        "left_hip": {
+          "usableSamples": 29,
+          "coveragePercent": 100.0
+        },
+        "right_hip": {
+          "usableSamples": 29,
+          "coveragePercent": 100.0
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "side1.mp4",
+      "sourceSha256": "37c990d102e7c3b745089daf8a2cbc90c3c1a593647cdb4d342cfa83c02ffe6b",
+      "elapsedSeconds": 0.8675932000041939,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "side1.mp4",
+        "size": 5397519,
+        "duration": 1.9,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "sideTransition1 baseline",
+      "segment": [
+        0,
+        4.366666666666666
+      ],
+      "samples": 66,
+      "detectedSamples": 65,
+      "missingSamples": 1,
+      "poseCoveragePercent": 98.48484848484848,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 65,
+          "coveragePercent": 98.48484848484848
+        },
+        "right_shoulder": {
+          "usableSamples": 65,
+          "coveragePercent": 98.48484848484848
+        },
+        "left_elbow": {
+          "usableSamples": 40,
+          "coveragePercent": 60.60606060606061
+        },
+        "right_elbow": {
+          "usableSamples": 65,
+          "coveragePercent": 98.48484848484848
+        },
+        "left_wrist": {
+          "usableSamples": 50,
+          "coveragePercent": 75.75757575757575
+        },
+        "right_wrist": {
+          "usableSamples": 65,
+          "coveragePercent": 98.48484848484848
+        },
+        "left_hip": {
+          "usableSamples": 65,
+          "coveragePercent": 98.48484848484848
+        },
+        "right_hip": {
+          "usableSamples": 65,
+          "coveragePercent": 98.48484848484848
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "sideTransition1.mp4",
+      "sourceSha256": "b9101a7bb66e4c33bc9ccb1dcda9bb76b150e89fa7f0ac06b36cac822978f20f",
+      "elapsedSeconds": 1.7984918000292964,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "sideTransition1.mp4",
+        "size": 11283083,
+        "duration": 4.366666666666666,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "sideTransition2 baseline",
+      "segment": [
+        0,
+        5.833333333333333
+      ],
+      "samples": 88,
+      "detectedSamples": 88,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 88,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 88,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 45,
+          "coveragePercent": 51.13636363636363
+        },
+        "right_elbow": {
+          "usableSamples": 88,
+          "coveragePercent": 100.0
+        },
+        "left_wrist": {
+          "usableSamples": 31,
+          "coveragePercent": 35.22727272727273
+        },
+        "right_wrist": {
+          "usableSamples": 87,
+          "coveragePercent": 98.86363636363636
+        },
+        "left_hip": {
+          "usableSamples": 77,
+          "coveragePercent": 87.5
+        },
+        "right_hip": {
+          "usableSamples": 72,
+          "coveragePercent": 81.81818181818181
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "sideTransition2.mp4",
+      "sourceSha256": "5d6343ca74154b1985c617e1d0c3056cc2996a1080b1925bd63c4c712fece81b",
+      "elapsedSeconds": 1.8361858000280336,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "sideTransition2.mp4",
+        "size": 15948886,
+        "duration": 5.833333333333333,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    },
+    {
+      "name": "tech1 baseline",
+      "segment": [
+        0,
+        5.6
+      ],
+      "samples": 84,
+      "detectedSamples": 84,
+      "missingSamples": 0,
+      "poseCoveragePercent": 100.0,
+      "confidenceThreshold": 0.5,
+      "joints": {
+        "left_shoulder": {
+          "usableSamples": 84,
+          "coveragePercent": 100.0
+        },
+        "right_shoulder": {
+          "usableSamples": 84,
+          "coveragePercent": 100.0
+        },
+        "left_elbow": {
+          "usableSamples": 84,
+          "coveragePercent": 100.0
+        },
+        "right_elbow": {
+          "usableSamples": 45,
+          "coveragePercent": 53.57142857142857
+        },
+        "left_wrist": {
+          "usableSamples": 84,
+          "coveragePercent": 100.0
+        },
+        "right_wrist": {
+          "usableSamples": 52,
+          "coveragePercent": 61.904761904761905
+        },
+        "left_hip": {
+          "usableSamples": 84,
+          "coveragePercent": 100.0
+        },
+        "right_hip": {
+          "usableSamples": 84,
+          "coveragePercent": 100.0
+        }
+      },
+      "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+      "source": "tech1.mp4",
+      "sourceSha256": "9e790a0d7cc084c039864421bc0bc461c67d5918356e914412cc8e82d4008b64",
+      "elapsedSeconds": 1.756385800021235,
+      "sampleFps": 15.0,
+      "video": {
+        "name": "tech1.mp4",
+        "size": 10041001,
+        "duration": 5.6,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      }
+    }
+  ]
+}
