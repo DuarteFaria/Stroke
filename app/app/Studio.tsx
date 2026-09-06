@@ -54,6 +54,8 @@ import {
   BONES,
   clamp,
   poseAt,
+  motionFlags,
+  cautiousLegs,
   regionAt,
   keyAt,
   applyOffsets,
@@ -273,8 +275,10 @@ export default function Studio() {
   const [relinking, setRelinking] = useState(false);
   const [selectingRegion, setSelectingRegion] = useState(false);
   const [regionDraft, setRegionDraft] = useState<Region | null>(null);
+  const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
   function setSrc(value: string) {
+    setTransitionStart(null);
     setVideoSrc(value);
     setSelectingRegion(false);
     setRegionDraft(null);
@@ -704,6 +708,8 @@ export default function Studio() {
       form.append('file', file);
       form.append('start', String(p.segment[0]));
       form.append('end', String(p.segment[1]));
+      form.append('quality', p.analysisQuality || 'standard');
+      form.append('transitions', JSON.stringify(p.transitions || []));
       if (p.athleteRegion) form.append('region', JSON.stringify(p.athleteRegion));
       if (p.athleteRegion && p.followAthlete) form.append('follow', 'true');
       const response = await analyzerFetch('/analyze', {
@@ -783,6 +789,8 @@ export default function Studio() {
   }
   const inSegment =
     time >= p.segment[0] - 0.001 && time <= p.segment[1] + 0.001;
+  const reviewFlags = useMemo(() => motionFlags(p.frames, p.video.width, p.video.height),
+    [p.frames,p.video.width,p.video.height]);
   const followedFrame = !selectingRegion && p.followAthlete && p.athleteRegion && inSegment
     ? regionAt(p.frames, time) : undefined;
   /**
@@ -802,6 +810,8 @@ export default function Studio() {
     () => applyOffsets(corrected, p.target, time),
     [corrected, p.target, time],
   );
+  const reviewedPose = cautiousLegs(corrected, reviewFlags, time);
+  const reviewedTarget = cautiousLegs(target, reviewFlags, time);
   const paddle = useMemo(() => keyAt(p.paddle, time, false), [p.paddle, time]);
   const targetPaddle = useMemo(() => {
     const delta = keyAt(p.targetPaddle, time);
@@ -1020,13 +1030,13 @@ export default function Studio() {
     ],
     [
       'Joelho esq.',
-      angle(corrected?.[23], corrected?.[25], corrected?.[27], w, h),
-      angle(target?.[23], target?.[25], target?.[27], w, h),
+      angle(reviewedPose?.[23], reviewedPose?.[25], reviewedPose?.[27], w, h),
+      angle(reviewedTarget?.[23], reviewedTarget?.[25], reviewedTarget?.[27], w, h),
     ],
     [
       'Joelho dir.',
-      angle(corrected?.[24], corrected?.[26], corrected?.[28], w, h),
-      angle(target?.[24], target?.[26], target?.[28], w, h),
+      angle(reviewedPose?.[24], reviewedPose?.[26], reviewedPose?.[28], w, h),
+      angle(reviewedTarget?.[24], reviewedTarget?.[26], reviewedTarget?.[28], w, h),
     ],
     [
       'Pá / referência',
@@ -1380,10 +1390,10 @@ export default function Studio() {
                     />
                   ))}
                   {showRaw && skeleton(raw, INK.before, false, true)}
-                  {skeleton(corrected, null, mode === 'correct')}
+                  {skeleton(reviewedPose, null, mode === 'correct')}
                   {p.targetEnabled &&
                     showTarget &&
-                    skeleton(target, INK.target, mode === 'target')}
+                    skeleton(reviewedTarget, INK.target, mode === 'target')}
                   {inSegment && paddleDrawing(paddle, INK.paddle)}
                   {inSegment &&
                     p.targetEnabled &&
@@ -1632,6 +1642,11 @@ export default function Studio() {
               </span>
             </div>
             <div className="analyse-action">
+              {src && <button disabled={busy} aria-pressed={p.analysisQuality === 'detailed'}
+                title="Análise detalhada: modelo Heavy, até 30 fps. Mais lenta."
+                onClick={() => commit({...p, analysisQuality: p.analysisQuality === 'detailed' ? 'standard' : 'detailed'})}>
+                {p.analysisQuality === 'detailed' && <Check size={14} />} Detalhada
+              </button>}
               {src && <button disabled={busy} aria-pressed={selectingRegion}
                 title="Selecionar área do atleta: arrasta um retângulo no vídeo"
                 onClick={() => {
@@ -1885,6 +1900,47 @@ export default function Studio() {
                 </div>
               </div>
             )}
+            {src && <details>
+              <summary>Rever movimento ({reviewFlags.length})</summary>
+              <div className="key-list">
+                {reviewFlags.length === 0 ? <small>Sem saltos isolados sinalizados.</small> :
+                  reviewFlags.map(f => <button key={`${f.t}-${f.joint}`} disabled={busy}
+                    title={`${JOINTS[f.joint]}: ${f.kind === 'swap' ? 'possível troca de lados' : 'possível salto'}. Rever no vídeo.`}
+                    onClick={() => { video.current?.pause(); seek(f.t); setMode('correct'); setSelected(String(f.joint)); }}>
+                    {fmt(f.t)} · {JOINTS[f.joint]} · {f.kind === 'swap' ? 'troca?' : 'salto?'}
+                  </button>)}
+              </div>
+            </details>}
+            {src && <details>
+              <summary>Transições ({p.transitions?.length || 0})</summary>
+              <div className="key-list">
+                <button disabled={busy || (transitionStart !== null && time <= transitionStart)}
+                  title="Marca o início e o fim da transição; volta a detetar para aplicar."
+                  onClick={() => {
+                    video.current?.pause();
+                    if (transitionStart === null) { setTransitionStart(time); return; }
+                    const ranges: [number,number][] = [...(p.transitions || []), [transitionStart,time]];
+                    ranges.sort((a,b) => a[0]-b[0]);
+                    const merged: [number,number][] = [];
+                    for (const r of ranges) {
+                      const last = merged[merged.length-1];
+                      if (last && r[0] <= last[1]) last[1] = Math.max(last[1],r[1]);
+                      else merged.push([...r]);
+                    }
+                    if (merged.length > 100) { say('Máximo de 100 transições.', 'warn'); return; }
+                    commit({...p, transitions:merged}); setTransitionStart(null);
+                    say('Transição marcada. Volta a detetar para aplicar.', 'info');
+                  }}>
+                  {transitionStart === null ? 'Marcar início' : `Marcar fim (${fmt(transitionStart)})`}
+                </button>
+                {transitionStart !== null && <button disabled={busy} onClick={() => setTransitionStart(null)}>Cancelar</button>}
+                {(p.transitions || []).map(([a,b],i) => <span key={`${a}-${b}`}>
+                  <button disabled={busy} onClick={() => seek(a)}>{fmt(a)}–{fmt(b)}</button>
+                  <button disabled={busy} aria-label={`Remover transição ${i+1}`}
+                    onClick={() => commit({...p,transitions:p.transitions!.filter((_,j) => j!==i)})}><X size={12}/></button>
+                </span>)}
+              </div>
+            </details>}
             <label className="field-label" htmlFor="notes">
               Notas
             </label>
@@ -1898,9 +1954,6 @@ export default function Studio() {
                 setDirty(true);
               }}
             />
-            <p className="service">
-              {desktop() ? 'Recuperação automática ativa — Ctrl+S para guardar o projeto.' : 'Nada se guarda sozinho — Ctrl+S.'} Isto não dá notas nem julga desempenho.
-            </p>
           </div>
         </aside>
       </div>

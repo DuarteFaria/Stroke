@@ -68,6 +68,11 @@ losing wrists at crop edges. Verify crop coordinate mapping and moving subjects.
 
 ## 3. Accurate analysis mode
 
+Implemented optional **Detalhada** (Heavy, up to 30 fps); standard remains Full
+at up to 15 fps. See the [three-clip model/sampling comparison](benchmarks/quality-v1/README.md).
+Selection and per-frame model identity persist in projects. Accuracy annotation
+and correction-effort evaluation are still pending.
+
 Compare Full and Heavy models plus increased sampling rates, changing one setting
 at a time. Save analysis settings and model identity with results. Keep cancellation
 and progress responsive. Measure runtime on the target Windows machine.
@@ -76,6 +81,17 @@ Exit: publish per-clip accuracy, coverage, correction effort and runtime compari
 choose the default from evidence. Package any additional model explicitly.
 
 ## 4. Tracking continuity
+
+Added [review-only wrist/elbow candidates](benchmarks/motion-v1/README.md) and
+provisional visual references. No raw joints are changed. The two initial clips
+produce no isolated-jump flags; real-example precision/recall and independent
+reference review remain pending.
+
+Implemented [marked transition intervals](benchmarks/transitions-v1/README.md):
+exclude blends, recreate detection afterward, and prevent interpolation across
+the restart. The sideTransition1 spot check recovers on the first post-interval
+sample. Automatic transition detection, anatomical reference annotation, joint
+outlier handling, and short-gap recovery remain pending.
 
 Add confidence-aware outlier handling and short-gap recovery. Preserve raw detections
 alongside processed results. Treat camera cuts and prolonged occlusion as breaks.

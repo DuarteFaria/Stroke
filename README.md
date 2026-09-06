@@ -9,6 +9,7 @@ The app is currently a **Windows desktop beta (v0.2.0)**. Analysis and project d
 ## Current features
 
 - Automatic pose tracking with progress and cancellation
+- Optional detailed analysis (Heavy model, up to 30 fps)
 - Optional fixed athlete region, drawn on the video and saved with the project
 - Slow playback, frame stepping, looping, and wrist trails
 - Editable joint positions with local interpolation and undo/redo
