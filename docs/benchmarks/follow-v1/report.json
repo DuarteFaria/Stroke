@@ -1,0 +1,124 @@
+[
+  {
+    "name": "multiple2 follow",
+    "segment": [
+      0,
+      7.933333333333334
+    ],
+    "samples": 119,
+    "detectedSamples": 119,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 119,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 119,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 111,
+        "coveragePercent": 93.27731092436974
+      },
+      "right_elbow": {
+        "usableSamples": 87,
+        "coveragePercent": 73.10924369747899
+      },
+      "left_wrist": {
+        "usableSamples": 109,
+        "coveragePercent": 91.59663865546219
+      },
+      "right_wrist": {
+        "usableSamples": 82,
+        "coveragePercent": 68.90756302521008
+      },
+      "left_hip": {
+        "usableSamples": 119,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 119,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "elapsedSeconds": 2.615704199997708,
+    "uncertainSamples": 0,
+    "initialRegion": {
+      "x": 0.02,
+      "y": 0.15,
+      "width": 0.5,
+      "height": 0.7
+    },
+    "finalRegion": {
+      "x": 0.08060309667295465,
+      "y": 0.15554967194243716,
+      "width": 0.5,
+      "height": 0.7
+    }
+  },
+  {
+    "name": "side1 follow",
+    "segment": [
+      0,
+      1.9
+    ],
+    "samples": 29,
+    "detectedSamples": 29,
+    "missingSamples": 0,
+    "poseCoveragePercent": 100.0,
+    "confidenceThreshold": 0.5,
+    "joints": {
+      "left_shoulder": {
+        "usableSamples": 29,
+        "coveragePercent": 100.0
+      },
+      "right_shoulder": {
+        "usableSamples": 29,
+        "coveragePercent": 100.0
+      },
+      "left_elbow": {
+        "usableSamples": 15,
+        "coveragePercent": 51.724137931034484
+      },
+      "right_elbow": {
+        "usableSamples": 29,
+        "coveragePercent": 100.0
+      },
+      "left_wrist": {
+        "usableSamples": 15,
+        "coveragePercent": 51.724137931034484
+      },
+      "right_wrist": {
+        "usableSamples": 29,
+        "coveragePercent": 100.0
+      },
+      "left_hip": {
+        "usableSamples": 29,
+        "coveragePercent": 100.0
+      },
+      "right_hip": {
+        "usableSamples": 29,
+        "coveragePercent": 100.0
+      }
+    },
+    "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+    "elapsedSeconds": 0.7628202000050806,
+    "uncertainSamples": 0,
+    "initialRegion": {
+      "x": 0.25,
+      "y": 0.2,
+      "width": 0.5,
+      "height": 0.65
+    },
+    "finalRegion": {
+      "x": 0.2843199481877188,
+      "y": 0.17080284768232595,
+      "width": 0.5,
+      "height": 0.65
+    }
+  }
+]

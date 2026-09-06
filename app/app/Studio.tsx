@@ -54,6 +54,7 @@ import {
   BONES,
   clamp,
   poseAt,
+  regionAt,
   keyAt,
   applyOffsets,
   upsert,
@@ -65,6 +66,7 @@ import {
   type Project,
   type Point,
   type Frame,
+  type Region,
 } from '@/lib/motion';
 type AnalysisResult = {
   fps: number;
@@ -230,7 +232,7 @@ function Toggle({
 }
 export default function Studio() {
   const [p, setP] = useState<Project>(emptyProject),
-    [src, setSrc] = useState(''),
+    [src, setVideoSrc] = useState(''),
     [file, setFile] = useState<File | null>(null),
     [time, setTime] = useState(0),
     [playing, setPlaying] = useState(false),
@@ -269,6 +271,15 @@ export default function Studio() {
     cancelled = useRef(false),
     dirtyRef = useRef(false);
   const [relinking, setRelinking] = useState(false);
+  const [selectingRegion, setSelectingRegion] = useState(false);
+  const [regionDraft, setRegionDraft] = useState<Region | null>(null);
+  const regionStart = useRef<Point | null>(null);
+  function setSrc(value: string) {
+    setVideoSrc(value);
+    setSelectingRegion(false);
+    setRegionDraft(null);
+    regionStart.current = null;
+  }
   const [desktopReady, setDesktopReady] = useState(false);
   useLayoutEffect(() => {
     current.current = p;
@@ -681,7 +692,7 @@ export default function Studio() {
     }));
   }
   async function analyze() {
-    if (!file || busy) return;
+    if (!file || busy || selectingRegion) return;
     video.current?.pause();
     setBusy(true);
     setProgress(0);
@@ -693,6 +704,8 @@ export default function Studio() {
       form.append('file', file);
       form.append('start', String(p.segment[0]));
       form.append('end', String(p.segment[1]));
+      if (p.athleteRegion) form.append('region', JSON.stringify(p.athleteRegion));
+      if (p.athleteRegion && p.followAthlete) form.append('follow', 'true');
       const response = await analyzerFetch('/analyze', {
         method: 'POST',
         body: form,
@@ -770,6 +783,8 @@ export default function Studio() {
   }
   const inSegment =
     time >= p.segment[0] - 0.001 && time <= p.segment[1] + 0.001;
+  const followedFrame = !selectingRegion && p.followAthlete && p.athleteRegion && inSegment
+    ? regionAt(p.frames, time) : undefined;
   /**
    * Uma colocação a meio não faz sentido fora do trecho nem durante a análise,
    * por isso deixa de aparecer sozinha em vez de ficar presa no ecrã.
@@ -884,6 +899,12 @@ export default function Studio() {
     if (busy || !src || !inSegment) return;
     video.current?.pause();
     const pt = pointFromEvent(e);
+    if (selectingRegion) {
+      regionStart.current = pt;
+      setRegionDraft(null);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
     if (placingNow) {
       commit(updatePoint(placingNow, pt, current.current));
       say(`${pointName(placingNow)} colocado.`, 'ok');
@@ -897,12 +918,31 @@ export default function Studio() {
     if (!id.startsWith('p:') && JOINTS[Number(id)]) setSelected(id);
   }
   function move(e: React.PointerEvent<SVGSVGElement>) {
+    if (regionStart.current) {
+      const a = regionStart.current, b = pointFromEvent(e);
+      setRegionDraft({x: Math.min(a.x,b.x), y: Math.min(a.y,b.y),
+        width: Math.abs(a.x-b.x), height: Math.abs(a.y-b.y)});
+      return;
+    }
     if (drag.current)
       setP(
         updatePoint(drag.current.id, pointFromEvent(e), drag.current.before),
       );
   }
-  function up() {
+  function up(e: React.PointerEvent<SVGSVGElement>) {
+    if (regionStart.current) {
+      const a = regionStart.current, b = pointFromEvent(e);
+      const region = {x: Math.min(a.x,b.x), y: Math.min(a.y,b.y),
+        width: Math.abs(a.x-b.x), height: Math.abs(a.y-b.y)};
+      regionStart.current = null;
+      setRegionDraft(null);
+      if (region.width >= 0.05 && region.height >= 0.05) {
+        commit({...current.current, athleteRegion: region});
+        setSelectingRegion(false);
+        say('Área guardada. Revê o trecho e volta a detetar para aplicar.', 'info');
+      } else say('Desenha uma área maior, com espaço para os braços.', 'warn');
+      return;
+    }
     if (drag.current) {
       saveHistory(drag.current.before);
       drag.current = null;
@@ -1313,6 +1353,8 @@ export default function Studio() {
                   onPointerMove={move}
                   onPointerUp={up}
                   onPointerCancel={() => {
+                    regionStart.current = null;
+                    setRegionDraft(null);
                     if (drag.current) {
                       setP(drag.current.before);
                       drag.current = null;
@@ -1320,6 +1362,12 @@ export default function Studio() {
                   }}
                   aria-label="Esqueleto do atleta e pá, editáveis"
                 >
+                  {(regionDraft || p.athleteRegion) && (() => {
+                    const r = regionDraft || followedFrame?.region || p.athleteRegion!;
+                    return <rect x={r.x*w} y={r.y*h} width={r.width*w} height={r.height*h}
+                      fill="rgba(255,216,77,0.06)" stroke={followedFrame?.regionStatus === 'uncertain' ? '#ff885c' : '#ffd84d'} strokeWidth={2}
+                      strokeDasharray="8 5" vectorEffect="non-scaling-stroke" pointerEvents="none" />;
+                  })()}
                   {paths.map((path, i) => (
                     <polyline
                       key={i}
@@ -1584,10 +1632,33 @@ export default function Studio() {
               </span>
             </div>
             <div className="analyse-action">
-              {blocked && <small className="warn-text">{blocked}</small>}
+              {src && <button disabled={busy} aria-pressed={selectingRegion}
+                title="Selecionar área do atleta: arrasta um retângulo no vídeo"
+                onClick={() => {
+                  video.current?.pause();
+                  if (!selectingRegion) seek(p.segment[0]);
+                  setSelectingRegion(!selectingRegion);
+                  setRegionDraft(null);
+                  regionStart.current = null;
+                }}>
+                {selectingRegion ? 'Cancelar seleção' : 'Área do atleta'}
+              </button>}
+              {src && p.athleteRegion && <button disabled={busy || selectingRegion}
+                aria-pressed={!!p.followAthlete}
+                title="Experimental: seguir a área na próxima deteção. Laranja: movimento incerto."
+                onClick={() => commit({...p, followAthlete: !p.followAthlete})}>
+                {p.followAthlete && <Check size={14} />} Seguir
+              </button>}
+              {src && p.athleteRegion && <button disabled={busy} onClick={() => {
+                commit({...p, athleteRegion: undefined, followAthlete: false});
+                setSelectingRegion(false);
+                setRegionDraft(null);
+                regionStart.current = null;
+              }}>Vídeo inteiro</button>}
+              {src && blocked && <small className="warn-text">{blocked}</small>}
               <button
                 className="primary"
-                disabled={!!blocked}
+                disabled={!!blocked || selectingRegion}
                 onClick={startTracking}
               >
                 <ScanLine size={17} />

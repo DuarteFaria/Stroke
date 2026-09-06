@@ -672,7 +672,14 @@ aside {
 .analyse-action {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.analyse-action button {
+  white-space: nowrap;
+}
+.analyse-action button[aria-pressed='true'] {
+  border-color: #ffd84d;
 }
 .analyse-action small {
   font-size: 11.5px;

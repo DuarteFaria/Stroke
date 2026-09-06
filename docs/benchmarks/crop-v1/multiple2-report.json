@@ -1,0 +1,54 @@
+{
+  "name": "multiple2 crop",
+  "segment": [
+    0,
+    7.933333333333334
+  ],
+  "samples": 119,
+  "detectedSamples": 119,
+  "missingSamples": 0,
+  "poseCoveragePercent": 100.0,
+  "confidenceThreshold": 0.5,
+  "joints": {
+    "left_shoulder": {
+      "usableSamples": 119,
+      "coveragePercent": 100.0
+    },
+    "right_shoulder": {
+      "usableSamples": 119,
+      "coveragePercent": 100.0
+    },
+    "left_elbow": {
+      "usableSamples": 112,
+      "coveragePercent": 94.11764705882354
+    },
+    "right_elbow": {
+      "usableSamples": 92,
+      "coveragePercent": 77.3109243697479
+    },
+    "left_wrist": {
+      "usableSamples": 112,
+      "coveragePercent": 94.11764705882354
+    },
+    "right_wrist": {
+      "usableSamples": 90,
+      "coveragePercent": 75.63025210084034
+    },
+    "left_hip": {
+      "usableSamples": 119,
+      "coveragePercent": 100.0
+    },
+    "right_hip": {
+      "usableSamples": 119,
+      "coveragePercent": 100.0
+    }
+  },
+  "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+  "elapsedSeconds": 2.8295179999549873,
+  "region": {
+    "x": 0.02,
+    "y": 0.15,
+    "width": 0.5,
+    "height": 0.7
+  }
+}

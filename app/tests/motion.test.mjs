@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   poseAt,
+  regionAt,
   keyAt,
   upsert,
   applyOffsets,
@@ -13,6 +14,31 @@ import {
 } from '../lib/motion.ts';
 const pt = (x = 0, y = 0, v = 1) => ({ x, y, v });
 const pose = (x = 0) => Array.from({ length: 33 }, () => pt(x));
+test('follow regions roundtrip and playback never borrows future or stale regions', () => {
+  const p = emptyProject(); p.video.duration = 20;
+  p.followAthlete = true;
+  const region = {x:.2,y:.1,width:.4,height:.6};
+  p.frames = [{t:1,points:pose(),region,regionStatus:'uncertain'}, {t:2,points:pose()}];
+  const loaded = parseProject(JSON.parse(JSON.stringify(p)));
+  assert.equal(loaded.followAthlete, true);
+  assert.deepEqual(regionAt(loaded.frames,1.1)?.region,region);
+  assert.equal(regionAt(loaded.frames,.9),undefined);
+  assert.equal(regionAt(loaded.frames,1.5),undefined);
+  assert.equal(regionAt(loaded.frames,2),undefined);
+  assert.throws(() => parseProject({...p,followAthlete:'yes'}));
+  assert.throws(() => parseProject({...p,frames:[{t:1,points:null,region:{...region,width:2}}]}));
+});
+test('athlete region is optional, preserved and validated', () => {
+  const p = emptyProject();
+  p.video.duration = 20;
+  assert.equal(parseProject(p).athleteRegion, undefined);
+  p.athleteRegion = {x: 0.2, y: 0.1, width: 0.4, height: 0.6};
+  assert.deepEqual(parseProject(JSON.parse(JSON.stringify(p))).athleteRegion, p.athleteRegion);
+  for (const region of [null, {x: 0, y: 0, width: 0.01, height: 1},
+    {x: 0.8, y: 0, width: 0.5, height: 1}, {x: '0', y: 0, width: 1, height: 1}]) {
+    assert.throws(() => parseProject({...p, athleteRegion: region}));
+  }
+});
 test('pose interpolation uses timestamps and does not invent missing poses', () => {
   const frames = [
     { t: 1, points: pose(0) },

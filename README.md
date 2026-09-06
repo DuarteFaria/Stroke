@@ -9,6 +9,7 @@ The app is currently a **Windows desktop beta (v0.2.0)**. Analysis and project d
 ## Current features
 
 - Automatic pose tracking with progress and cancellation
+- Optional fixed athlete region, drawn on the video and saved with the project
 - Slow playback, frame stepping, looping, and wrist trails
 - Editable joint positions with local interpolation and undo/redo
 - Manual paddle and reference-point annotation
@@ -46,6 +47,9 @@ For more detail about the packaged app, diagnostics, recovery, and release build
 Project files contain analysis and edits, but not the source video. Keep the original footage alongside the project or reconnect it when prompted.
 
 ## Project status
+
+The next development phase is [better 2D detection](docs/DETECTION-PLAN.md), starting
+with repeatable coverage reports and manually reviewed reference footage.
 
 Stroke is a functional editor prototype, not validated biomechanics software or an automatic coaching verdict.
 

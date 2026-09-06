@@ -1,11 +1,12 @@
 """Loopback-only video analysis. Uploaded temporary videos are deleted after each job."""
 from pathlib import Path
-import math, os, tempfile, threading, uuid, time, secrets, sys
+import math, os, tempfile, threading, uuid, time, secrets, sys, json
 import cv2
 import mediapipe as mp
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from backend.region_tracking import RegionFollower
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent))
 MODEL = ROOT / 'models' / 'pose_landmarker_full.task'
@@ -38,7 +39,29 @@ def inspect_video(path):
         return dict(fps=fps,duration=count/fps,width=int(w),height=int(h),frameCount=int(count))
     finally: cap.release()
 
-def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False):
+def validate_region(region):
+    if region is None: return None
+    if not isinstance(region, dict) or set(region) != {'x','y','width','height'}:
+        raise ValueError('Choose a valid athlete region.')
+    if any(type(v) not in (int,float) or not math.isfinite(v) for v in region.values()):
+        raise ValueError('Region coordinates must be finite numbers.')
+    x,y,w,h=(region[k] for k in ('x','y','width','height'))
+    if x<0 or y<0 or w<.05 or h<.05 or x+w>1.00000001 or y+h>1.00000001:
+        raise ValueError('Keep the region inside the video and at least 5% wide and high.')
+    return region
+
+
+def crop_bounds(region, width, height):
+    if region is None: return (0,0,width,height)
+    return (math.floor(region['x']*width+1e-9), math.floor(region['y']*height+1e-9),
+            min(width,math.ceil((region['x']+region['width'])*width-1e-9)),
+            min(height,math.ceil((region['y']+region['height'])*height-1e-9)))
+
+
+def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=None,follow=False):
+    region=validate_region(region)
+    if follow and region is None: raise ValueError('Select an athlete region before enabling follow.')
+    follower=RegionFollower(region) if follow else None
     meta=inspect_video(path)
     if not (0<=start<end<=meta['duration']+.1) or end-start>120:
         raise ValueError('Select a valid segment of up to 120 seconds within the video.')
@@ -59,23 +82,32 @@ def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False):
                 if not math.isfinite(t) or (index>0 and t<=0): t=index/meta['fps']
                 if t>end+.001: break
                 ms=max(previous_ms+1,round(t*1000)); previous_ms=ms
+                source_h,source_w=bgr.shape[:2]
+                active_region=dict(follower.region) if follower else region
+                x0,y0,x1,y1=crop_bounds(active_region,source_w,source_h)
+                bgr=bgr[y0:y1,x0:x1]
                 if max(bgr.shape[:2])>1280:
                     bgr=cv2.resize(bgr,None,fx=1280/max(bgr.shape[:2]),fy=1280/max(bgr.shape[:2]))
                 rgb=cv2.cvtColor(bgr,cv2.COLOR_BGR2RGB)
                 result=detector.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB,data=rgb),ms)
                 points=None
                 if result.pose_landmarks:
-                    points=[{'x':float(p.x),'y':float(p.y),'v':float(min(p.visibility,p.presence))} for p in result.pose_landmarks[0]]
-                frames.append({'t':t,'points':points})
+                    points=[{'x':float((x0+p.x*(x1-x0))/source_w),'y':float((y0+p.y*(y1-y0))/source_h),'v':float(min(p.visibility,p.presence))} for p in result.pose_landmarks[0]]
+                frame={'t':t,'points':points}
+                if follower:
+                    frame.update(region=active_region, regionStatus=follower.update(points))
+                frames.append(frame)
                 progress(min(99,round((index-first+1)/max(1,last-first+1)*100)))
     finally: cap.release()
     detected=sum(f['points'] is not None for f in frames)
     return {**meta,'frames':frames,'start':start,'end':end,'sampleFps':meta['fps']/step,'detected':detected,'total':len(frames)}
 
-def run_job(job_id,path,start,end):
+def run_job(job_id,path,start,end,region=None,follow=False):
     job=JOBS[job_id]
     try:
-        result=analyze(path,start,end,lambda p:job.update(progress=p),lambda:job['cancel'])
+        extra={'region':region} if region is not None else {}
+        if follow: extra['follow']=True
+        result=analyze(path,start,end,lambda p:job.update(progress=p),lambda:job['cancel'],**extra)
         job.update(status='cancelled' if result is None else 'done',result=result,progress=100)
     except Exception as exc:
         job.update(status='error',error=str(exc))
@@ -83,7 +115,10 @@ def run_job(job_id,path,start,end):
         Path(path).unlink(missing_ok=True); job['finished']=time.time()
 
 @app.post('/analyze')
-async def submit(file:UploadFile=File(...),start:float=Form(...),end:float=Form(...)):
+async def submit(file:UploadFile=File(...),start:float=Form(...),end:float=Form(...),region:str|None=Form(None),follow:bool=Form(False)):
+    try: selected_region=validate_region(json.loads(region) if region is not None else None)
+    except (ValueError,TypeError) as exc: raise HTTPException(400,str(exc)) from exc
+    if follow and selected_region is None: raise HTTPException(400,'Select an athlete region before enabling follow.')
     if not MODEL.exists(): raise HTTPException(503,'Pose model missing. Run the setup script.')
     if not all(math.isfinite(x) for x in [start,end]) or not 0<=start<end or end-start>120:
         raise HTTPException(400,'Choose a segment between 0 and 120 seconds long.')
@@ -102,7 +137,7 @@ async def submit(file:UploadFile=File(...),start:float=Form(...),end:float=Form(
                 temp.write(chunk)
         meta=inspect_video(path)
         if end>meta['duration']+.1: raise HTTPException(400,'Segment ends beyond the video duration.')
-        threading.Thread(target=run_job,args=(job_id,path,start,end),daemon=True).start()
+        threading.Thread(target=run_job,args=(job_id,path,start,end,selected_region,follow),daemon=True).start()
         return {'id':job_id,'metadata':meta}
     except Exception as exc:
         JOBS.pop(job_id,None)

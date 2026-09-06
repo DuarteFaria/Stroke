@@ -1,0 +1,54 @@
+{
+  "name": "side1 crop",
+  "segment": [
+    0,
+    1.9
+  ],
+  "samples": 29,
+  "detectedSamples": 29,
+  "missingSamples": 0,
+  "poseCoveragePercent": 100.0,
+  "confidenceThreshold": 0.5,
+  "joints": {
+    "left_shoulder": {
+      "usableSamples": 29,
+      "coveragePercent": 100.0
+    },
+    "right_shoulder": {
+      "usableSamples": 29,
+      "coveragePercent": 100.0
+    },
+    "left_elbow": {
+      "usableSamples": 14,
+      "coveragePercent": 48.275862068965516
+    },
+    "right_elbow": {
+      "usableSamples": 29,
+      "coveragePercent": 100.0
+    },
+    "left_wrist": {
+      "usableSamples": 14,
+      "coveragePercent": 48.275862068965516
+    },
+    "right_wrist": {
+      "usableSamples": 29,
+      "coveragePercent": 100.0
+    },
+    "left_hip": {
+      "usableSamples": 29,
+      "coveragePercent": 100.0
+    },
+    "right_hip": {
+      "usableSamples": 29,
+      "coveragePercent": 100.0
+    }
+  },
+  "note": "Raw sampled-frame coverage only; confidence is not accuracy. Manual corrections and playback interpolation are excluded.",
+  "elapsedSeconds": 1.3649354000226595,
+  "region": {
+    "x": 0.25,
+    "y": 0.2,
+    "width": 0.5,
+    "height": 0.65
+  }
+}

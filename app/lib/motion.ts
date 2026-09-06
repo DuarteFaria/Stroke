@@ -1,5 +1,20 @@
 export type Point = { x: number; y: number; v: number };
-export type Frame = { t: number; points: Point[] | null };
+export type Region = { x: number; y: number; width: number; height: number };
+export type Frame = { t: number; points: Point[] | null; region?: Region; regionStatus?: 'following' | 'uncertain' };
+export function validRegion(r: Region): boolean {
+  return !!r && [r.x, r.y, r.width, r.height].every(Number.isFinite) &&
+    r.x >= 0 && r.y >= 0 && r.width >= .05 && r.height >= .05 &&
+    r.x + r.width <= 1.00000001 && r.y + r.height <= 1.00000001;
+}
+export function regionAt(frames: Frame[], t: number): Frame | undefined {
+  let lo = 0, hi = frames.length;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (frames[m].t <= t + .001) lo = m + 1; else hi = m;
+  }
+  const frame = frames[lo - 1];
+  return frame?.region && t - frame.t < .25 ? frame : undefined;
+}
 export type Key = { t: number; points: Record<string, Point> };
 export type EventMark = {
   id: string;
@@ -19,6 +34,8 @@ export type Project = {
     fps: number;
   };
   segment: [number, number];
+  athleteRegion?: Region;
+  followAthlete?: boolean;
   frames: Frame[];
   corrections: Key[];
   target: Key[];
@@ -211,6 +228,11 @@ export function parseProject(value: unknown): Project {
   };
   if (!value || typeof value !== 'object') return fail();
   const p = value as Project;
+  if (p.followAthlete !== undefined && typeof p.followAthlete !== 'boolean') return fail();
+  if (p.athleteRegion !== undefined) {
+    const r = p.athleteRegion;
+    if (!validRegion(r)) return fail();
+  }
   const num = (x: unknown) => typeof x === 'number' && Number.isFinite(x);
   const point = (x: Point) =>
     x &&
@@ -253,6 +275,8 @@ export function parseProject(value: unknown): Project {
       (f, i) =>
         !f ||
         !validTime(f.t) ||
+        (f.region !== undefined && !validRegion(f.region)) ||
+        (f.regionStatus !== undefined && !['following', 'uncertain'].includes(f.regionStatus)) ||
         (i > 0 && f.t <= p.frames[i - 1].t) ||
         (f.points !== null &&
           (!Array.isArray(f.points) ||
