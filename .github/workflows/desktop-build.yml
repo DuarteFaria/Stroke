@@ -80,7 +80,7 @@ jobs:
           retention-days: 7
       - name: Collect smoke diagnostics
         if: always()
-        run: python -c "import pathlib, shutil, tempfile; p = pathlib.Path(tempfile.gettempdir()) / 'stroke-desktop-smoke'; shutil.copytree(p, 'build/smoke-diagnostics', dirs_exist_ok=True) if p.exists() else None"
+        run: python -c "import pathlib, shutil, tempfile; p = pathlib.Path(tempfile.gettempdir()) / 'stroke-desktop-smoke'; out = pathlib.Path('build/smoke-diagnostics'); out.mkdir(parents=True, exist_ok=True); [shutil.copy2(f, out / f.name) for f in p.glob('*') if f.is_file() and not f.is_symlink() and f.suffix in ('.log', '.json', '.txt', '.png')]"
       - name: Upload smoke diagnostics
         if: always()
         uses: actions/upload-artifact@v4

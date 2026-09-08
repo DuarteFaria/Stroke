@@ -136,7 +136,7 @@ async function startAnalyzer() {
   analyzer.stderr.on('data', chunk => log(chunk.toString()));
   analyzer.on('exit', (code) => {
     log(`Analyzer exited (${code})`);
-    if (!quitting && api) { dialog.showErrorBox('Stroke', 'O analisador parou. Guarda o projeto e reinicia o Stroke.'); }
+    if (!quitting && api && !smoke) { dialog.showErrorBox('Stroke', 'O analisador parou. Guarda o projeto e reinicia o Stroke.'); }
   });
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(Error('O analisador não arrancou em 90 segundos.')), 90000);
