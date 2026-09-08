@@ -5,6 +5,7 @@
   "description": "Estúdio local de movimento em caiaque",
   "author": "Stroke",
   "private": true,
+  "license": "MIT",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
@@ -19,6 +20,7 @@
     "directories": { "output": "../release" },
     "files": ["*.cjs", "loading.html", "icon.png"],
     "extraResources": [
+      { "from": "../LICENSE", "to": "LICENSE.txt" },
       { "from": "../app/desktop-dist", "to": "ui" },
       { "from": "../build/analyzer/stroke-analyzer", "to": "analyzer" }
     ],
