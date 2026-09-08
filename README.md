@@ -116,3 +116,7 @@ examples/  Sample .stroke.json project
 ```
 
 The core editor is in `app/app/Studio.tsx`, motion and project logic in `app/lib/motion.ts`, and the local analyzer in `backend/main.py`.
+
+## License
+
+Stroke is licensed under the [MIT License](LICENSE). Third-party dependencies and pose models retain their respective licenses.
