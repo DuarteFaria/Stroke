@@ -1,0 +1,115 @@
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/desktop-build.yml'
+      - 'scripts/**'
+      - 'desktop/**'
+      - 'backend/**'
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            artifact: Stroke-Windows-x64
+            installer: release/*-Windows-x64-Setup.exe
+          - name: macOS Apple Silicon
+            os: macos-15
+            artifact: Stroke-macOS-arm64
+            installer: release/*-macOS-arm64.dmg
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-desktop.txt
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.19.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: |
+            app/pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
+      - name: Build native analyzer and installer
+        run: python scripts/build_desktop.py
+      - name: Backend tests
+        run: python -m pytest tests -q
+      - name: Frontend type check
+        working-directory: app
+        run: pnpm typecheck
+      - name: Frontend tests
+        working-directory: app
+        run: pnpm test
+      - name: Test packaged application and both pose models
+        run: python scripts/smoke_desktop.py
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.installer }}
+          if-no-files-found: error
+          retention-days: 7
+      - name: Collect smoke diagnostics
+        if: always()
+        run: python -c "import pathlib, shutil, tempfile; p = pathlib.Path(tempfile.gettempdir()) / 'stroke-desktop-smoke'; out = pathlib.Path('build/smoke-diagnostics'); out.mkdir(parents=True, exist_ok=True); [shutil.copy2(f, out / f.name) for f in p.glob('*') if f.is_file() and not f.is_symlink() and f.suffix in ('.log', '.json', '.txt', '.png')]"
+      - name: Upload smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-diagnostics
+          path: build/smoke-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    name: Publish desktop release
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Stroke-Windows-x64
+          path: installers
+      - uses: actions/download-artifact@v4
+        with:
+          name: Stroke-macOS-arm64
+          path: installers
+      - name: Publish both verified installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish_desktop.py installers

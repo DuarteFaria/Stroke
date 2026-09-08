@@ -2,7 +2,7 @@
 
 Stroke is a local kayak technique studio for reviewing sprint footage. It tracks an athlete, overlays a pose on the video, and provides tools for correcting joints, annotating the paddle, marking stroke events, and sketching an ideal movement.
 
-The app is currently a **Windows desktop beta (v0.2.0)**. Analysis and project data stay on the computer; no account or cloud upload is required.
+The app is currently a **desktop beta (v0.2.0)**, with build targets for Windows x64 and Apple Silicon Macs (M1 and newer). Analysis and project data stay on the computer; no account or cloud upload is required.
 
 ![Stroke body analysis](docs/screenshots/body-analysis.png)
 
@@ -35,6 +35,8 @@ The current release is built for Windows x64:
 The installer does not require administrator access, Python, or Node.js. The unpacked build is also available at `release/win-unpacked/Stroke.exe`; keep that folder together when moving it.
 
 For more detail about the packaged app, diagnostics, recovery, and release builds, see [DESKTOP.md](DESKTOP.md).
+
+GitHub Actions builds and publishes both installers after merges into main. Download them from the [Latest release](https://github.com/DuarteFaria/Stroke/releases/latest). To rebuild manually, open **Actions → Desktop installers → Run workflow** on main. The workflow also runs for relevant pull requests and `v*` tags. macOS users choose `Stroke-macOS-arm64`, open the `.dmg`, and drag Stroke to Applications. These builds have no Apple Developer ID signature or notarization; first launch may require **System Settings → Privacy & Security → Open Anyway**. Intel Macs are not supported by the current analyzer dependency.
 
 ## Basic workflow
 
