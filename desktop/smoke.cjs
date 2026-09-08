@@ -26,6 +26,27 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token, Origin: 'https://unrelated.example' } })).status, 403);
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } })).status, 200);
   const checks = ['renderer', 'authenticated analyzer', 'foreign origin rejected'];
+  if (process.env.STROKE_SMOKE_ANALYSIS_VIDEO) {
+    const clip = await fs.readFile(process.env.STROKE_SMOKE_ANALYSIS_VIDEO);
+    for (const quality of ['standard', 'detailed']) {
+      const form = new FormData();
+      form.set('file', new Blob([clip], { type: 'video/mp4' }), 'smoke.mp4');
+      form.set('start', '0'); form.set('end', '1'); form.set('quality', quality);
+      const headers = { 'X-Stroke-Token': token };
+      const response = await fetch(`${api}/analyze`, { method: 'POST', headers, body: form });
+      assert.equal(response.status, 200, await response.clone().text());
+      const { id } = await response.json();
+      let job;
+      const deadline = Date.now() + 90000;
+      do {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        job = await (await fetch(`${api}/jobs/${id}`, { headers })).json();
+      } while (['queued', 'running'].includes(job.status) && Date.now() < deadline);
+      assert.equal(job.status, 'done', JSON.stringify(job));
+      assert(job.result.frames.length > 0);
+      checks.push(`packaged video decoding and ${quality} inference`);
+    }
+  }
   if (!process.env.STROKE_SMOKE_PROJECT || !process.env.STROKE_SMOKE_VIDEO) return checks;
   let nextOpen = process.env.STROKE_SMOKE_PROJECT;
   const saved = path.join(data, 'smoke-saved.stroke.json');

@@ -125,12 +125,14 @@ async function startServer() {
   origin = `http://127.0.0.1:${server.address().port}`;
 }
 async function startAnalyzer() {
-  const command = app.isPackaged ? path.join(process.resourcesPath, 'analyzer', 'stroke-analyzer.exe') : path.join(root, '.venv', 'Scripts', 'python.exe');
+  const command = app.isPackaged
+    ? path.join(process.resourcesPath, 'analyzer', process.platform === 'win32' ? 'stroke-analyzer.exe' : 'stroke-analyzer')
+    : path.join(root, '.venv', ...(process.platform === 'win32' ? ['Scripts', 'python.exe'] : ['bin', 'python']));
   const args = app.isPackaged ? [] : ['-m', 'backend.desktop_entry'];
   const temp = path.join(data(), 'analysis-temp'); await fsp.mkdir(temp, { recursive: true });
   // This directory is exclusively owned by this single-instance app.
   for (const file of await fsp.readdir(temp)) if (/^tmp.*\.mp4$/.test(file)) await fsp.rm(path.join(temp, file), { force: true });
-  analyzer = spawn(command, args, { cwd: app.isPackaged ? process.resourcesPath : root, windowsHide: true, env: { ...process.env, STROKE_TOKEN: token, STROKE_ORIGIN: origin, TEMP: temp, TMP: temp }, stdio: ['pipe', 'pipe', 'pipe'] });
+  analyzer = spawn(command, args, { cwd: app.isPackaged ? process.resourcesPath : root, windowsHide: true, env: { ...process.env, STROKE_TOKEN: token, STROKE_ORIGIN: origin, TEMP: temp, TMP: temp, TMPDIR: temp }, stdio: ['pipe', 'pipe', 'pipe'] });
   analyzer.stderr.on('data', chunk => log(chunk.toString()));
   analyzer.on('exit', (code) => {
     log(`Analyzer exited (${code})`);

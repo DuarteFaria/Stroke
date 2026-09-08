@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --win --x64 --dir",
-    "dist": "electron-builder --win nsis --x64"
+    "dist": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg --arm64 --publish never"
   },
   "devDependencies": { "electron": "44.2.0", "electron-builder": "26.15.3" },
   "build": {
@@ -22,6 +23,15 @@
       { "from": "../build/analyzer/stroke-analyzer", "to": "analyzer" }
     ],
     "win": { "icon": "icon.ico", "target": "nsis", "artifactName": "Stroke-${version}-Windows-${arch}-Setup.${ext}" },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "category": "public.app-category.sports",
+      "minimumSystemVersion": "14.0",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
+      "artifactName": "Stroke-${version}-macOS-${arch}.${ext}"
+    },
     "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "deleteAppDataOnUninstall": false }
   }
 }
