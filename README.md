@@ -36,7 +36,7 @@ The installer does not require administrator access, Python, or Node.js. The unp
 
 For more detail about the packaged app, diagnostics, recovery, and release builds, see [DESKTOP.md](DESKTOP.md).
 
-GitHub Actions builds both installers: open **Actions → Desktop installers → Run workflow** and download the installer artifacts from the completed run. The workflow also runs for relevant pull requests and `v*` tags. macOS users choose `Stroke-macOS-arm64`, open the `.dmg`, and drag Stroke to Applications. These builds have no Apple Developer ID signature or notarization; first launch may require **System Settings → Privacy & Security → Open Anyway**. Intel Macs are not supported by the current analyzer dependency.
+GitHub Actions builds and publishes both installers after merges into main. Download them from the [Latest release](https://github.com/DuarteFaria/Stroke/releases/latest). To rebuild manually, open **Actions → Desktop installers → Run workflow** on main. The workflow also runs for relevant pull requests and `v*` tags. macOS users choose `Stroke-macOS-arm64`, open the `.dmg`, and drag Stroke to Applications. These builds have no Apple Developer ID signature or notarization; first launch may require **System Settings → Privacy & Security → Open Anyway**. Intel Macs are not supported by the current analyzer dependency.
 
 ## Basic workflow
 

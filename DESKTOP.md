@@ -42,11 +42,11 @@ This developer launch uses `.venv`; release builds use the bundled executable. T
 
 `Build-Desktop.ps1` finds Codex's bundled Node/pnpm tools automatically, with installed tools on PATH as a fallback, and restores PATH afterward. Run it in an ordinary PowerShell window; administrator privileges are not needed.
 
-### GitHub Actions (Windows and macOS)
+### GitHub Actions and Releases (Windows and macOS)
 
-Open the repository's **Actions → Desktop installers → Run workflow**. The workflow must be merged into the default branch before this manual button is available. Relevant pull requests and version tags such as `v0.2.1` also trigger builds. No signing secrets are needed, and installers are uploaded as workflow artifacts, not automatically published as GitHub Releases.
+Open the repository's **Actions → Desktop installers → Run workflow**. The workflow must be merged into the default branch before this manual button is available. Relevant pull requests and version tags such as `v0.2.1` also trigger builds. No signing secrets are needed. Every push to main (including a merged pull request), a manual run on main, or a matching version tag publishes both verified installers to GitHub Releases. Pull request builds never publish.
 
-Each job builds on its native OS using Python 3.12, Node 24, pnpm 11.19.0, and the checked-in dependencies. Windows produces `Stroke-Windows-x64`; macOS produces `Stroke-macOS-arm64`. Download and extract the artifact ZIP to get the `.exe` or `.dmg`. Artifacts and smoke diagnostics expire after seven days. Standard runners are free for this public repository; private repositories are subject to their account's included allowance.
+Each job builds on its native OS using Python 3.12, Node 24, pnpm 11.19.0, and the checked-in dependencies. Windows produces `Stroke-Windows-x64`; macOS produces `Stroke-macOS-arm64`. Download and extract the artifact ZIP to get the `.exe` or `.dmg`. Workflow artifacts and smoke diagnostics expire after seven days; published Release assets remain available. Standard runners are free for this public repository; private repositories are subject to their account's included allowance.
 
 macOS pins MediaPipe 0.10.32 because 1.0.1 aborts CPU pose graphs with a missing Metal service ([upstream issue](https://github.com/google-ai-edge/mediapipe/issues/6356)). Windows retains 1.0.1. Both use the same downloaded Full and Heavy models.
 
@@ -77,3 +77,5 @@ This uses separate test application data and a copy of the project. It checks th
 - The initial installer is unsigned unless signing credentials are configured externally. Signing and automatic updates are not implemented as part of this beta; distribute new versioned installers manually.
 - Test the downloaded macOS DMG on another Apple Silicon Mac, including first-launch approval, video playback, save/reopen, and analysis. The macOS runner's version is the initial validation baseline; compatibility with older macOS releases is not yet established.
 - Intel Mac/Linux packages and cloud features are deferred.
+
+Each successful main build creates a release tagged `desktop-build-<run number>` and marks it Latest, preserving older releases. The app version stays in `desktop/package.json`; the release build number distinguishes successive merges without automatic version commits. A version-tag build uses its `v<app version>` tag instead and rejects a mismatched version. Both installers must build and pass tests before publication. Uploads go to a draft first, so a failed upload cannot expose a release with only one installer. Reruns resume drafts, leave published releases unchanged, and skip superseded main commits. Download the current pair from [Latest release](https://github.com/DuarteFaria/Stroke/releases/latest).

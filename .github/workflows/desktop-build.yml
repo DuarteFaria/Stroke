@@ -12,6 +12,7 @@ on:
       - 'tests/**'
       - 'requirements*.txt'
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
@@ -89,3 +90,26 @@ jobs:
           path: build/smoke-diagnostics/
           if-no-files-found: ignore
           retention-days: 7
+
+  publish:
+    name: Publish desktop release
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Stroke-Windows-x64
+          path: installers
+      - uses: actions/download-artifact@v4
+        with:
+          name: Stroke-macOS-arm64
+          path: installers
+      - name: Publish both verified installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish_desktop.py installers
