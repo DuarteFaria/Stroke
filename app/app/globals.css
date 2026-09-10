@@ -2,6 +2,32 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+/* Stroke review stays attached to the timeline; body tools remain visible. */
+.stroke-inline { padding: 4px 0 8px; }
+.stroke-lanes { position: relative; height: 52px; margin: 0 7px 5px; border-bottom: 1px solid var(--line-soft); }
+.stroke-lanes::before { content: ''; position: absolute; inset: 25px 0 auto; border-top: 1px solid var(--line-soft); }
+.stroke-marker { position: absolute; transform: translateX(-50%); min-width: 26px; width: 26px; height: 24px; min-height: 24px; padding: 0; border-radius: 3px; font-size: 11px; border: 1px dashed var(--muted); z-index: 1; }
+.stroke-marker.marker-entry { top: 0; }
+.stroke-marker.marker-exit { top: 27px; }
+.stroke-marker[data-reviewed='true'] { border-style: solid; color: var(--green); }
+.stroke-marker[aria-pressed='true'] { outline: 2px solid var(--foreground); outline-offset: 1px; z-index: 2; }
+.stroke-toolbar, .marker-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.marker-legend { font-family: inherit; color: var(--muted); }
+.stroke-toolbar-space { flex: 1; }
+.stroke-inline button, .stroke-inline select { font-size: 12px; }
+.stroke-inline select { background: var(--control); color: var(--text); border: 1px solid var(--control-line); border-radius: 6px; padding: 7px; min-height: 32px; }
+.marker-edit { border-top: 1px solid var(--line-soft); margin-top: 8px; padding-top: 8px; }
+.marker-caption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-right: auto; font-size: 12px; }
+.marker-caption strong { font-weight: 500; }
+.marker-caption small, .marker-caption time { color: var(--muted); }
+.timing-summary { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.timing-summary p { font-size: 12px; color: var(--muted); margin: 6px 0; }
+.timing-summary dl { display: flex; flex-wrap: wrap; gap: 28px; margin: 12px 0; }
+.timing-summary dt { font-size: 12px; color: var(--muted); }
+.timing-summary dd { font-size: 22px; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.stroke-inline button:focus-visible, .stroke-inline select:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
+
+
 /* ----------------------------------------------------------------- palette
    The chrome is warm neutral on purpose. Saturated colour is reserved for the
    data drawn over the video: one hue per limb, orange for the proposed
@@ -188,7 +214,7 @@ kbd {
 
 /* ----------------------------------------------------------------- shell */
 .studio {
-  max-width: 1700px;
+  max-width: 1840px;
   margin: auto;
   padding: 0 26px 26px;
 }
@@ -302,7 +328,7 @@ h3 {
 /* -------------------------------------------------------------- workspace */
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: 76px minmax(0, 1fr) 300px;
   gap: 16px;
   align-items: start;
 }
@@ -1230,12 +1256,17 @@ textarea {
 }
 @media (min-width: 1500px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: 76px minmax(0, 1fr) 320px;
   }
 }
 
 /* -------------------------------------------------------------- responsive */
 @media (max-width: 1100px) {
+  .video-wrap {
+    width: min(100%, calc(40dvh * var(--ar)));
+  }
+  .workspace-nav { flex-direction: row; justify-content: center; }
+  .workspace-nav button { flex: 0 1 100px; }
   .workspace {
     grid-template-columns: 1fr;
   }
@@ -1292,3 +1323,24 @@ textarea {
     width: auto;
   }
 }
+
+.workspace-nav { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.workspace-nav button { display: flex; flex-direction: column; justify-content: center; gap: 7px; width: 100%; min-height: 66px; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 12px; padding: 10px 4px; }
+.workspace-nav button:hover { background: var(--control); color: var(--text); }
+.workspace-nav button[aria-pressed='true'] { background: var(--control); border-color: var(--control-line); color: var(--text); }
+.analysis-settings { display: grid; gap: 14px; }
+.analysis-settings h2, .timing-summary h2 { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
+.analysis-settings p { font-size: 13px; line-height: 1.6; color: var(--muted); margin: 0; }
+.analysis-settings h3 { font-size: 13px; font-weight: 600; border-top: 1px solid var(--line); padding-top: 18px; margin: 4px 0 0; }
+.analysis-settings button { justify-content: center; min-height: 38px; }
+aside .timing-summary { margin: 0; padding: 0; border: 0; }
+aside .timing-summary dl { flex-direction: column; gap: 24px; margin: 24px 0; }
+.analyse { justify-content: space-between; column-gap: 32px; }
+.analyse > .analyse-action { margin-left: auto; }
+@media (max-width: 1100px) {
+  .workspace-nav { flex-direction: row; justify-content: center; padding: 0; }
+  .workspace-nav button { flex: 0 1 100px; min-height: 52px; flex-direction: row; }
+}
+
+.analyse-action { justify-content: center; }
+.analyse-action > .toggle { min-height: 38px; padding: 0 8px; margin: 0; }

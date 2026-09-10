@@ -15,6 +15,8 @@ The app is currently a **desktop beta (v0.2.0)**, with build targets for Windows
 - Editable joint positions with local interpolation and undo/redo
 - Manual paddle and reference-point annotation
 - Catch and exit markers for either blade
+- Frame-by-frame marker adjustment, side changes, ignore/restore, and undo
+- Timing summary from confirmed markers: cadence and mean left/right time in water
 - 2D elbow, knee, and paddle/reference angles
 - An editable ideal-motion overlay for visual comparison
 - Portable, versioned `.stroke.json` projects
@@ -41,10 +43,10 @@ GitHub Actions builds and publishes both installers after merges into main. Down
 ## Basic workflow
 
 1. Open a video and select a continuous segment of up to 120 seconds.
-2. Choose **Detetar o atleta** to run local pose tracking.
-3. Review the segment and drag misplaced joints into position.
-4. Use **Pá** to annotate the paddle and reference direction.
-5. Mark **Ataque** and **Saída**, or use **Ideal** to sketch a comparison pose.
+2. Choose **Analisar a minha pagaiada** to track the athlete. Analysis does not add stroke markers.
+3. Click an entry/exit marker on the timeline to replay it in slow motion. Use **Confirmar**, **Ajustar**, or **Remover** in the compact toolbar.
+4. Use **Ajustar** to move by individual frames or change the side. The visible **+ Entrada** and **+ Saída** buttons add manual markers.
+5. Use the left toolbar: **Editar** for body/paddle tools and **Resumo** for timing. Detail and athlete-area controls sit beside the main analysis button.
 6. Save the session as a `.stroke.json` project with **Guardar** or `Ctrl+S`.
 
 Project files contain analysis and edits, but not the source video. Keep the original footage alongside the project or reconnect it when prompted.
@@ -60,7 +62,7 @@ Current limits:
 
 - Tracking samples at up to 15 fps for responsive CPU analysis.
 - Measurements are 2D image-plane projections, not 3D motion or force estimates.
-- Paddle tracking and catch/exit detection are manual.
+- Paddle tracking and entry/exit marking are manual. Existing saved annotations remain supported. See [the review guide](docs/STROKE-REVIEW.md).
 - Occlusion, crossing limbs, clothing, multiple athletes, and camera cuts can reduce accuracy.
 - Video files are limited to 1 GB and analysis segments to 120 seconds.
 - The ideal pose is a free 2D sketch; it does not enforce limb lengths or render a new video.

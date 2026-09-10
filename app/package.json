@@ -12,7 +12,7 @@
     "start": "vinext start",
     "lint": "oxlint app lib tests vite.config.ts",
     "format": "oxfmt",
-    "test": "node --experimental-strip-types --test tests/motion.test.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

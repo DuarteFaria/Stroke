@@ -101,6 +101,9 @@ export type EventMark = {
   t: number;
   kind: 'Catch' | 'Exit';
   side: 'Left' | 'Right';
+  source?: 'automatic' | 'manual';
+  review?: 'suggested' | 'confirmed' | 'skipped';
+  originalT?: number;
 };
 export type Project = {
   version: 1;
@@ -406,9 +409,14 @@ export function parseProject(value: unknown): Project {
         typeof e.id !== 'string' ||
         !validTime(e.t) ||
         !['Catch', 'Exit'].includes(e.kind) ||
-        !['Left', 'Right'].includes(e.side),
+        !['Left', 'Right'].includes(e.side) ||
+        (e.source !== undefined && !['automatic', 'manual'].includes(e.source)) ||
+        (e.review !== undefined && !['suggested', 'confirmed', 'skipped'].includes(e.review)) ||
+        (e.originalT !== undefined && !validTime(e.originalT)),
     )
   )
     return fail();
+  if (new Set(p.events.map(e => e.id)).size !== p.events.length) return fail();
+  p.events.sort((a, b) => a.t - b.t);
   return p;
 }
