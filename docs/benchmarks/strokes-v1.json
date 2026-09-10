@@ -1,0 +1,542 @@
+{
+  "version": 1,
+  "meaning": "Candidate inventory only. Contact accuracy has not been validated.",
+  "clips": [
+    {
+      "name": "back1.stroke.json",
+      "segment": [
+        0,
+        1.8
+      ],
+      "markers": []
+    },
+    {
+      "name": "back2.stroke.json",
+      "segment": [
+        0,
+        1.3666666666666667
+      ],
+      "markers": []
+    },
+    {
+      "name": "diagonal1.stroke.json",
+      "segment": [
+        0,
+        2.4
+      ],
+      "markers": []
+    },
+    {
+      "name": "diagonalTransition1.stroke.json",
+      "segment": [
+        0,
+        5.133333333333334
+      ],
+      "markers": []
+    },
+    {
+      "name": "front1.stroke.json",
+      "segment": [
+        0,
+        8.233333333333333
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Right-Catch-0.600000",
+          "t": 0.6,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.6
+        },
+        {
+          "id": "auto-v1-Right-Exit-0.733333",
+          "t": 0.7333333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.7333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Catch-0.933333",
+          "t": 0.9333333333333333,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.9333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Exit-1.133333",
+          "t": 1.1333333333333333,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.1333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Catch-1.800000",
+          "t": 1.8,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.8
+        },
+        {
+          "id": "auto-v1-Left-Exit-3.000000",
+          "t": 3,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3
+        },
+        {
+          "id": "auto-v1-Left-Catch-3.866667",
+          "t": 3.8666666666666667,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.8666666666666667
+        },
+        {
+          "id": "auto-v1-Left-Exit-4.200000",
+          "t": 4.2,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 4.2
+        }
+      ]
+    },
+    {
+      "name": "multiple1.stroke.json",
+      "segment": [
+        0,
+        7.9
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Right-Catch-0.600000",
+          "t": 0.6,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.6
+        },
+        {
+          "id": "auto-v1-Right-Exit-0.800000",
+          "t": 0.8,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.8
+        },
+        {
+          "id": "auto-v1-Right-Catch-1.600000",
+          "t": 1.6,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.6
+        },
+        {
+          "id": "auto-v1-Right-Exit-1.733333",
+          "t": 1.7333333333333334,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.7333333333333334
+        },
+        {
+          "id": "auto-v1-Right-Catch-3.066667",
+          "t": 3.0666666666666664,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.0666666666666664
+        },
+        {
+          "id": "auto-v1-Right-Exit-3.200000",
+          "t": 3.2,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.2
+        },
+        {
+          "id": "auto-v1-Right-Catch-4.866667",
+          "t": 4.866666666666666,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 4.866666666666666
+        },
+        {
+          "id": "auto-v1-Right-Exit-5.000000",
+          "t": 5,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 5
+        },
+        {
+          "id": "auto-v1-Right-Catch-5.600000",
+          "t": 5.6,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 5.6
+        },
+        {
+          "id": "auto-v1-Right-Exit-6.266667",
+          "t": 6.266666666666667,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 6.266666666666667
+        },
+        {
+          "id": "auto-v1-Right-Catch-6.933333",
+          "t": 6.933333333333334,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 6.933333333333334
+        },
+        {
+          "id": "auto-v1-Right-Exit-7.133333",
+          "t": 7.133333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 7.133333333333333
+        }
+      ]
+    },
+    {
+      "name": "multiple2.stroke.json",
+      "segment": [
+        0,
+        7.933333333333334
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Left-Catch-0.133333",
+          "t": 0.13333333333333333,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.13333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Exit-0.333333",
+          "t": 0.3333333333333333,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.3333333333333333
+        },
+        {
+          "id": "auto-v1-Right-Catch-0.933333",
+          "t": 0.9333333333333333,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.9333333333333333
+        },
+        {
+          "id": "auto-v1-Right-Exit-1.266667",
+          "t": 1.2666666666666666,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.2666666666666666
+        },
+        {
+          "id": "auto-v1-Left-Catch-6.333333",
+          "t": 6.333333333333333,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 6.333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Exit-6.600000",
+          "t": 6.6,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 6.6
+        },
+        {
+          "id": "auto-v1-Right-Catch-7.000000",
+          "t": 7,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 7
+        },
+        {
+          "id": "auto-v1-Right-Exit-7.200000",
+          "t": 7.2,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 7.2
+        }
+      ]
+    },
+    {
+      "name": "shortclose1.stroke.json",
+      "segment": [
+        0,
+        1.3333333333333333
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Right-Catch-0.933333",
+          "t": 0.9333333333333333,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.9333333333333333
+        },
+        {
+          "id": "auto-v1-Right-Exit-1.133333",
+          "t": 1.1333333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.1333333333333333
+        }
+      ]
+    },
+    {
+      "name": "side1.stroke.json",
+      "segment": [
+        0,
+        1.9
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Right-Catch-0.466667",
+          "t": 0.4666666666666667,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.4666666666666667
+        },
+        {
+          "id": "auto-v1-Right-Exit-1.200000",
+          "t": 1.2,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.2
+        }
+      ]
+    },
+    {
+      "name": "sideTransition1.stroke.json",
+      "segment": [
+        0,
+        4.366666666666666
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Right-Catch-0.266667",
+          "t": 0.26666666666666666,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.26666666666666666
+        },
+        {
+          "id": "auto-v1-Right-Exit-0.800000",
+          "t": 0.8,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.8
+        },
+        {
+          "id": "auto-v1-Right-Catch-2.733333",
+          "t": 2.7333333333333334,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 2.7333333333333334
+        },
+        {
+          "id": "auto-v1-Right-Exit-3.133333",
+          "t": 3.1333333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.1333333333333333
+        }
+      ]
+    },
+    {
+      "name": "sideTransition2.stroke.json",
+      "segment": [
+        0,
+        5.833333333333333
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Right-Catch-0.400000",
+          "t": 0.4,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.4
+        },
+        {
+          "id": "auto-v1-Right-Exit-0.933333",
+          "t": 0.9333333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.9333333333333333
+        },
+        {
+          "id": "auto-v1-Right-Catch-3.600000",
+          "t": 3.6,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.6
+        },
+        {
+          "id": "auto-v1-Right-Exit-3.933333",
+          "t": 3.933333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.933333333333333
+        },
+        {
+          "id": "auto-v1-Right-Catch-4.733333",
+          "t": 4.733333333333333,
+          "kind": "Catch",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 4.733333333333333
+        },
+        {
+          "id": "auto-v1-Right-Exit-5.133333",
+          "t": 5.133333333333333,
+          "kind": "Exit",
+          "side": "Right",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 5.133333333333333
+        }
+      ]
+    },
+    {
+      "name": "tech1.stroke.json",
+      "segment": [
+        0,
+        5.6
+      ],
+      "markers": [
+        {
+          "id": "auto-v1-Left-Catch-0.133333",
+          "t": 0.13333333333333333,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.13333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Exit-0.333333",
+          "t": 0.3333333333333333,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 0.3333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Catch-1.533333",
+          "t": 1.5333333333333332,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.5333333333333332
+        },
+        {
+          "id": "auto-v1-Left-Exit-1.933333",
+          "t": 1.9333333333333333,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 1.9333333333333333
+        },
+        {
+          "id": "auto-v1-Left-Catch-3.466667",
+          "t": 3.466666666666667,
+          "kind": "Catch",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 3.466666666666667
+        },
+        {
+          "id": "auto-v1-Left-Exit-4.066667",
+          "t": 4.066666666666666,
+          "kind": "Exit",
+          "side": "Left",
+          "source": "automatic",
+          "review": "suggested",
+          "originalT": 4.066666666666666
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 'use client';
+import StrokeReview, { TimingSummary } from './StrokeReview';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -19,6 +20,8 @@ import {
   Undo2,
   Redo2,
   ScanLine,
+  ChartNoAxesColumn,
+  Pencil,
   Plus,
   X,
   Flag,
@@ -153,15 +156,6 @@ const PADDLE_POINTS: [string, string][] = [
   ['r1', 'Referência 1'],
   ['r2', 'Referência 2'],
 ];
-const SIDES: [string, string][] = [
-  ['Left', 'Pá esquerda'],
-  ['Right', 'Pá direita'],
-];
-const SIDE_WORD: Record<string, string> = {
-  Left: 'pá esquerda',
-  Right: 'pá direita',
-};
-const KIND_WORD: Record<string, string> = { Catch: 'Ataque', Exit: 'Saída' };
 /** Os três botões escolhem o que se arrasta por cima do vídeo. */
 const MODES: Record<string, { label: string; hud: string }> = {
   correct: { label: 'Corpo', hud: 'Arrasta os pontos' },
@@ -245,7 +239,6 @@ export default function Studio() {
     [showTarget, setShowTarget] = useState(true),
     [showPaths, setShowPaths] = useState(false),
     [selected, setSelected] = useState('15'),
-    [side, setSide] = useState('Left'),
     [placing, setPlacing] = useState<string | null>(null),
     [note, setNote] = useState<{ text: string; tone: Tone }>({
       text: '',
@@ -275,9 +268,12 @@ export default function Studio() {
   const [relinking, setRelinking] = useState(false);
   const [selectingRegion, setSelectingRegion] = useState(false);
   const [regionDraft, setRegionDraft] = useState<Region | null>(null);
+  const [activePanel, setActivePanel] = useState<'edit' | 'summary'>('edit');
+  const reviewLoop = useRef<[number, number] | null>(null);
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
   function setSrc(value: string) {
+    reviewLoop.current = null;
     setTransitionStart(null);
     setVideoSrc(value);
     setSelectingRegion(false);
@@ -319,6 +315,7 @@ export default function Studio() {
     setP(next);
   };
   function seek(t: number) {
+    reviewLoop.current = null;
     const v = video.current;
     if (v && src && !busy) {
       v.pause();
@@ -500,9 +497,20 @@ export default function Studio() {
       setRedoCount(0);
       setDirty(false);
       setMode('correct');
-      say('Escolhe o trecho na barra e deteta o atleta.', 'ok');
+      say('Vídeo pronto. Escolhe Analisar a minha pagaiada.', 'ok');
     }
     return true;
+  }
+  function replayStroke(a: number, b: number) {
+    if (!video.current || !src || busy || b <= a) return;
+    seek(a);
+    reviewLoop.current = [a, b];
+    setSpeed('0.25');
+    video.current.playbackRate = .25;
+    void video.current.play().catch((error: unknown) => {
+      if (!(error instanceof DOMException && error.name === 'AbortError'))
+        say('Não foi possível reproduzir o vídeo.', 'warn');
+    });
   }
   function togglePlay() {
     const v = video.current;
@@ -556,9 +564,9 @@ export default function Studio() {
     const tick = () => {
       const v = video.current;
       if (v && !v.paused) {
-        const [a, b] = current.current.segment;
+        const [a, b] = reviewLoop.current || current.current.segment;
         if (v.currentTime >= b) {
-          if (loop) {
+          if (loop || reviewLoop.current) {
             v.currentTime = a;
           } else {
             v.pause();
@@ -585,7 +593,7 @@ export default function Studio() {
       hush();
       return;
     }
-    if (busy || el.closest('input,textarea,[contenteditable="true"]')) return;
+    if (busy || el.closest('input,textarea,select,[contenteditable="true"]')) return;
     if (mod && e.key === 'z') {
       e.preventDefault();
       undo();
@@ -698,6 +706,7 @@ export default function Studio() {
   async function analyze() {
     if (!file || busy || selectingRegion) return;
     video.current?.pause();
+    reviewLoop.current = null;
     setBusy(true);
     setProgress(0);
     cancelled.current = false;
@@ -753,9 +762,11 @@ export default function Studio() {
             ),
             target: old.target.filter((k) => k.t < r.start || k.t > r.end),
           });
-          seek(r.start);
+          const firstMoment = r.start;
+          if (video.current) video.current.currentTime = firstMoment;
+          setTime(firstMoment);
           say(
-            `Atleta encontrado em ${r.detected}/${r.total} fotogramas. Tracejado = rever.`,
+            'Análise pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.',
             r.detected > r.total * 0.6 ? 'ok' : 'warn',
           );
           break;
@@ -955,21 +966,6 @@ export default function Studio() {
       saveHistory(drag.current.before);
       drag.current = null;
     }
-  }
-  function mark(kind: 'Catch' | 'Exit') {
-    commit({
-      ...p,
-      events: [
-        ...p.events,
-        {
-          id: crypto.randomUUID(),
-          t: time,
-          kind,
-          side: side as 'Left' | 'Right',
-        },
-      ].sort((a, b) => a.t - b.t),
-    });
-    say(`${KIND_WORD[kind]} · ${SIDE_WORD[side]}.`, 'ok');
   }
   function setSegment(edge: 'in' | 'out', t: number, keep: Project): Project {
     return {
@@ -1247,6 +1243,10 @@ export default function Studio() {
         </button>
       </div>
       <div className="workspace">
+        <nav className="workspace-nav" aria-label="Ferramentas do projeto">
+          <button aria-pressed={activePanel === 'edit'} onClick={() => setActivePanel('edit')}><Pencil size={20} /><span>Editar</span></button>
+          <button aria-pressed={activePanel === 'summary'} onClick={() => setActivePanel('summary')}><ChartNoAxesColumn size={20} /><span>Resumo</span></button>
+        </nav>
         <section className="viewer">
           <div className={`stage ${placingNow ? 'placing' : ''}`}>
             {src ? (
@@ -1384,13 +1384,6 @@ export default function Studio() {
                       width: `${pct(p.segment[1]) - pct(p.segment[0])}%`,
                     }}
                   />
-                  {p.events.map((e) => (
-                    <span
-                      key={e.id}
-                      className={`tick ${e.kind === 'Catch' ? 'catch' : 'exit'}`}
-                      style={{ left: `${pct(e.t)}%` }}
-                    />
-                  ))}
                 </div>
               </div>
               <input
@@ -1428,8 +1421,11 @@ export default function Studio() {
             </div>
             <div className="timeline-labels">
               <span>{fmt(time)}</span>
+              {p.events.some(e => e.review !== 'skipped') && <span className="marker-legend">↓ Entrada · ↑ Saída · E/D: esquerda/direita</span>}
               <span>{fmt(p.video.duration)}</span>
             </div>
+            <StrokeReview key={src} project={p} time={time} disabled={busy} hasVideo={!!src}
+              commit={commit} seek={seek} replay={replayStroke} />
           </div>
           <div className="transport">
             <button
@@ -1559,11 +1555,10 @@ export default function Studio() {
               </span>
             </div>
             <div className="analyse-action">
-              {src && <button disabled={busy} aria-pressed={p.analysisQuality === 'detailed'}
-                title="Análise detalhada: modelo Heavy, até 30 fps. Mais lenta."
-                onClick={() => commit({...p, analysisQuality: p.analysisQuality === 'detailed' ? 'standard' : 'detailed'})}>
-                {p.analysisQuality === 'detailed' && <Check size={14} />} Detalhada
-              </button>}
+              <Toggle checked={p.analysisQuality === 'detailed'} disabled={!src || busy}
+                onChange={checked => commit({...p, analysisQuality: checked ? 'detailed' : 'standard'})}>
+                Análise detalhada
+              </Toggle>
               {src && <button disabled={busy} aria-pressed={selectingRegion}
                 title="Selecionar área do atleta: arrasta um retângulo no vídeo"
                 onClick={() => {
@@ -1587,6 +1582,8 @@ export default function Studio() {
                 setRegionDraft(null);
                 regionStart.current = null;
               }}>Vídeo inteiro</button>}
+
+
               {src && blocked && <small className="warn-text">{blocked}</small>}
               <button
                 className="primary"
@@ -1594,7 +1591,7 @@ export default function Studio() {
                 onClick={startTracking}
               >
                 <ScanLine size={17} />
-                Detetar o atleta
+                Analisar a minha pagaiada
               </button>
             </div>
           </div>
@@ -1636,7 +1633,8 @@ export default function Studio() {
           </div>
         </section>
         <aside>
-          <div>
+          {activePanel === 'summary' && <TimingSummary project={p} />}
+          <div hidden={activePanel !== 'edit'}>
             <fieldset className="modes">
               <legend className="sr-only">O que estás a editar no vídeo</legend>
               <div>
@@ -1742,54 +1740,6 @@ export default function Studio() {
                   </button>
                 </div>
               ))}
-            <div className="events">
-              <h3>Ataque e saída</h3>
-              <Choice
-                label="Que pá"
-                value={side}
-                onChange={setSide}
-                items={SIDES}
-              />
-              <div className="row">
-                <button
-                  disabled={!src || busy || !inSegment}
-                  onClick={() => mark('Catch')}
-                >
-                  <Flag size={14} />
-                  Ataque
-                </button>
-                <button
-                  disabled={!src || busy || !inSegment}
-                  onClick={() => mark('Exit')}
-                >
-                  <Flag size={14} />
-                  Saída
-                </button>
-              </div>
-              <div className="event-list">
-                {p.events.map((e) => (
-                  <div className="event" key={e.id}>
-                    <button disabled={!src || busy} onClick={() => seek(e.t)}>
-                      <i className={e.kind === 'Catch' ? 'catch' : 'exit'} />
-                      {KIND_WORD[e.kind]} · {SIDE_WORD[e.side]}
-                      <time>{fmt(e.t)}</time>
-                    </button>
-                    <button
-                      aria-label={`Apagar ${KIND_WORD[e.kind]} da ${SIDE_WORD[e.side]} em ${fmt(e.t)}`}
-                      disabled={busy}
-                      onClick={() =>
-                        commit({
-                          ...p,
-                          events: p.events.filter((x) => x.id !== e.id),
-                        })
-                      }
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
             {keysHere.length > 0 && (
               <div className="keyframes">
                 <h3>Fotogramas editados</h3>
