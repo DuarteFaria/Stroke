@@ -63,6 +63,35 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await waitFor(`document.querySelector('video')?.readyState >= 2`);
   await capture('studio-overview.png');
   checks.push('native project open', 'native video open and decode');
+  if (process.env.STROKE_SMOKE_COMPARISONS) {
+    await click('Comparar');
+    await waitFor(`document.querySelector('.stroke-comparison')?.innerText.includes('4 pares entrada/saída confirmados · 3 ciclos completos')`);
+    assert.equal(await run(`!!document.querySelector('.comparison-curve')`),false);
+    assert.equal(await run(`document.querySelector('.comparison-table tbody tr td').textContent`),'0.30 s');
+    await click('Rever A');
+    await waitFor(`!document.querySelector('video').paused`);
+    await run(`document.querySelector('video').pause()`);
+    await run(`(() => { const s = document.querySelector('select[aria-label="Pagaiada B"]'); s.value = 'e'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`);
+    await waitFor(`document.querySelector('select[aria-label="Pagaiada B"]').value === 'e' && document.querySelector('.comparison-table tbody tr td:last-child').textContent === '0.00 s'`);
+    await run(`(() => { const s = document.querySelector('select[aria-label="Pagaiada B"]'); s.value = 'c'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`);
+    await run(`document.querySelector('.stroke-comparison').scrollIntoView()`);
+    await settle();
+    await capture('comparison-strokes.png');
+    await click('Esquerda / direita');
+    await waitFor(`document.querySelector('.comparison-table').innerText.includes('Direita − esquerda')`);
+    assert.equal(await run(`document.querySelector('.comparison-table tbody tr td:last-child').textContent`),'+0.10 s');
+    assert.equal(await run(`!!document.querySelector('.comparison-curve')`),false);
+    await settle();
+    await capture('comparison-sides.png');
+    win.setSize(1024,768);
+    await settle();
+    await run(`document.querySelector('.stroke-comparison').scrollIntoView()`);
+    await settle();
+    assert.equal(await run(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`),true);
+    await capture('comparison-compact.png');
+    checks.push('stroke selections and timing', 'stroke replay', 'left/right means and signed differences', 'comparison compact layout');
+    return checks;
+  }
   await click('Analisar a minha pagaiada');
   const original = JSON.parse(await fs.readFile(fixture, 'utf8'));
   if (original.corrections.length || original.target.length) {
@@ -77,7 +106,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   assert.equal(await run(`document.querySelector('.modes').getBoundingClientRect().height > 0`), true);
   assert.equal(await run(`document.querySelectorAll('.stroke-marker').length`), original.events.filter(e => e.review !== 'skipped' && e.t >= original.segment[0] && e.t <= original.segment[1]).length);
   assert.equal(await run(`document.body.innerText.includes('Sugerir marcações') || document.body.innerText.includes('Rever sugestões')`), false);
-  assert.equal(await run(`document.querySelectorAll('.workspace-nav button').length`), 2);
+  assert.equal(await run(`['Editar','Resumo','Comparar'].every(label => [...document.querySelectorAll('.workspace-nav button')].some(b => b.textContent.trim() === label))`), true);
   assert.equal(await run(`document.querySelector('.analyse-action').innerText.includes('Análise detalhada') && document.querySelector('.analyse-action').innerText.includes('Área do atleta')`), true);
   await click('Área do atleta');
   await waitFor(`document.body.innerText.includes('Cancelar seleção')`);

@@ -1,5 +1,6 @@
 'use client';
 import StrokeReview, { TimingSummary } from './StrokeReview';
+import StrokeComparison from './StrokeComparison';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -268,7 +269,7 @@ export default function Studio() {
   const [relinking, setRelinking] = useState(false);
   const [selectingRegion, setSelectingRegion] = useState(false);
   const [regionDraft, setRegionDraft] = useState<Region | null>(null);
-  const [activePanel, setActivePanel] = useState<'edit' | 'summary'>('edit');
+  const [activePanel, setActivePanel] = useState<'edit' | 'summary' | 'compare'>('edit');
   const reviewLoop = useRef<[number, number] | null>(null);
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
@@ -1246,6 +1247,7 @@ export default function Studio() {
         <nav className="workspace-nav" aria-label="Ferramentas do projeto">
           <button aria-pressed={activePanel === 'edit'} onClick={() => setActivePanel('edit')}><Pencil size={20} /><span>Editar</span></button>
           <button aria-pressed={activePanel === 'summary'} onClick={() => setActivePanel('summary')}><ChartNoAxesColumn size={20} /><span>Resumo</span></button>
+          <button aria-pressed={activePanel === 'compare'} onClick={() => { setActivePanel('compare'); requestAnimationFrame(() => document.getElementById('stroke-comparison')?.scrollIntoView({block:'start'})); }}><ChartNoAxesColumn size={20} /><span>Comparar</span></button>
         </nav>
         <section className="viewer">
           <div className={`stage ${placingNow ? 'placing' : ''}`}>
@@ -1631,9 +1633,11 @@ export default function Studio() {
             ))}
             <p className="angles-note">Medidos na imagem plana, não em 3D.</p>
           </div>
+          {activePanel === 'compare' && <StrokeComparison key={src} project={p} disabled={busy || !src}
+            replay={(a,b) => { replayStroke(a,b); video.current?.scrollIntoView({block:'center'}); }} />}
         </section>
         <aside>
-          {activePanel === 'summary' && <TimingSummary project={p} />}
+          {(activePanel === 'summary' || activePanel === 'compare') && <TimingSummary project={p} />}
           <div hidden={activePanel !== 'edit'}>
             <fieldset className="modes">
               <legend className="sr-only">O que estás a editar no vídeo</legend>

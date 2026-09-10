@@ -1344,3 +1344,27 @@ aside .timing-summary dl { flex-direction: column; gap: 24px; margin: 24px 0; }
 
 .analyse-action { justify-content: center; }
 .analyse-action > .toggle { min-height: 38px; padding: 0 8px; margin: 0; }
+
+.stroke-comparison { margin-top: 20px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.stroke-comparison h2 { font-size: 20px; margin: 0; }
+.stroke-comparison h3 { font-size: 15px; margin: 0; }
+.stroke-comparison p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }
+.comparison-heading, .comparison-tabs, .comparison-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.comparison-heading { justify-content: space-between; align-items: flex-start; }
+.comparison-tabs { border: 0; padding: 0; margin: 0; min-width: 0; }
+.comparison-tabs button[aria-pressed='true'] { border-color: var(--green); color: var(--green); background: var(--sunk); }
+.stroke-comparison button, .stroke-comparison select { font-size: 12px; }
+.stroke-comparison select { display: block; width: 100%; min-height: 36px; margin-top: 6px; padding: 6px; background: var(--control); border: 1px solid var(--control-line); border-radius: 6px; color: var(--text); }
+.stroke-comparison label { font-size: 12px; }
+.comparison-filter { display: block; max-width: 210px; margin: 12px 0; }
+.comparison-pickers { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin: 14px 0; }
+.comparison-actions { margin-top: 8px; }
+.comparison-table-wrap { overflow-x: auto; }
+.comparison-table { width: 100%; font-size: 13px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.comparison-table caption { text-align: left; color: var(--muted); font-size: 12px; padding: 10px 0; }
+.comparison-table th, .comparison-table td { text-align: right; padding: 12px 8px; border-bottom: 1px solid var(--line); }
+.comparison-table th:first-child { text-align: left; }
+.comparison-table thead th { font-weight: 500; color: var(--muted); }
+.comparison-table small { display: block; font-size: 10px; color: var(--muted); margin-top: 4px; }
+.comparison-empty { padding: 20px; background: var(--sunk); border-radius: 6px; }
+@media (max-width: 600px) { .stroke-comparison { padding: 12px; } .comparison-pickers { grid-template-columns: 1fr; } }
