@@ -1,6 +1,7 @@
 'use client';
 import StrokeReview, { TimingSummary } from './StrokeReview';
 import StrokeComparison from './StrokeComparison';
+import Pose3D from './Pose3D';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -269,7 +270,7 @@ export default function Studio() {
   const [relinking, setRelinking] = useState(false);
   const [selectingRegion, setSelectingRegion] = useState(false);
   const [regionDraft, setRegionDraft] = useState<Region | null>(null);
-  const [activePanel, setActivePanel] = useState<'edit' | 'summary' | 'compare'>('edit');
+  const [activePanel, setActivePanel] = useState<'edit' | 'summary' | 'compare' | '3d'>('edit');
   const reviewLoop = useRef<[number, number] | null>(null);
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
@@ -394,7 +395,7 @@ export default function Studio() {
   }
   async function importProject(f: File) {
     try {
-      if (f.size > 30 * 1024 ** 2) throw Error('Projeto com mais de 30 MB.');
+      if (f.size > 100 * 1024 ** 2) throw Error('Projeto com mais de 100 MB.');
       const loaded = parseProject(JSON.parse(await f.text()));
       video.current?.pause();
       setP(loaded);
@@ -753,6 +754,7 @@ export default function Studio() {
           const old = current.current;
           commit({
             ...old,
+            version: 2,
             video: { ...old.video, fps: r.fps },
             frames: [
               ...old.frames.filter((f) => f.t < r.start || f.t > r.end),
@@ -1243,8 +1245,9 @@ export default function Studio() {
           {videoAction}
         </button>
       </div>
-      <div className="workspace">
+      <div className={`workspace ${activePanel === '3d' ? 'workspace-3d' : ''}`}>
         <nav className="workspace-nav" aria-label="Ferramentas do projeto">
+          <button aria-pressed={activePanel === '3d'} onClick={() => setActivePanel('3d')}><ScanLine size={20} /><span>Vista 3D</span></button>
           <button aria-pressed={activePanel === 'edit'} onClick={() => setActivePanel('edit')}><Pencil size={20} /><span>Editar</span></button>
           <button aria-pressed={activePanel === 'summary'} onClick={() => setActivePanel('summary')}><ChartNoAxesColumn size={20} /><span>Resumo</span></button>
           <button aria-pressed={activePanel === 'compare'} onClick={() => { setActivePanel('compare'); requestAnimationFrame(() => document.getElementById('stroke-comparison')?.scrollIntoView({block:'start'})); }}><ChartNoAxesColumn size={20} /><span>Comparar</span></button>
@@ -1637,6 +1640,7 @@ export default function Studio() {
             replay={(a,b) => { replayStroke(a,b); video.current?.scrollIntoView({block:'center'}); }} />}
         </section>
         <aside>
+          {activePanel === '3d' && <Pose3D project={p} time={time} available={!!src && inSegment && !busy} />}
           {(activePanel === 'summary' || activePanel === 'compare') && <TimingSummary project={p} />}
           <div hidden={activePanel !== 'edit'}>
             <fieldset className="modes">

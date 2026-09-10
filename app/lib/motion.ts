@@ -1,4 +1,6 @@
 export type Point = { x: number; y: number; v: number };
+/** Estimated hip-relative metres; v is visibility, not depth accuracy. */
+export type WorldPoint = Point & { z: number };
 export type MotionFlag = { t: number; joint: number; kind: 'jump' | 'swap'; score: number };
 /** Review candidates only. Never changes positions or confidence. */
 export function motionFlags(frames: Frame[], width: number, height: number): MotionFlag[] {
@@ -80,7 +82,7 @@ export function cautiousLegs(points: Point[] | null, flags: MotionFlag[], t: num
   return out;
 }
 export type Region = { x: number; y: number; width: number; height: number };
-export type Frame = { t: number; points: Point[] | null; region?: Region; regionStatus?: 'following' | 'uncertain'; quality?: 'standard' | 'detailed'; model?: string; transition?: boolean; breakBefore?: boolean };
+export type Frame = { t: number; points: Point[] | null; worldPoints?: WorldPoint[] | null; region?: Region; regionStatus?: 'following' | 'uncertain'; quality?: 'standard' | 'detailed'; model?: string; transition?: boolean; breakBefore?: boolean };
 export function validRegion(r: Region): boolean {
   return !!r && [r.x, r.y, r.width, r.height].every(Number.isFinite) &&
     r.x >= 0 && r.y >= 0 && r.width >= .05 && r.height >= .05 &&
@@ -106,7 +108,7 @@ export type EventMark = {
   originalT?: number;
 };
 export type Project = {
-  version: 1;
+  version: 1 | 2;
   name: string;
   video: {
     name: string;
@@ -293,7 +295,7 @@ export function paddleAngle(
 }
 export function emptyProject(): Project {
   return {
-    version: 1,
+    version: 2,
     name: 'Sessão sem nome',
     video: { name: '', size: 0, duration: 0, width: 640, height: 360, fps: 30 },
     segment: [0, 20],
@@ -309,7 +311,7 @@ export function emptyProject(): Project {
 }
 export function parseProject(value: unknown): Project {
   const fail = () => {
-    throw new Error('Isto não é um projeto Stroke v1 válido.');
+    throw new Error('Isto não é um projeto Stroke v1/v2 válido.');
   };
   if (!value || typeof value !== 'object') return fail();
   const p = value as Project;
@@ -330,7 +332,7 @@ export function parseProject(value: unknown): Project {
     x.v >= 0 &&
     x.v <= 1;
   if (
-    p.version !== 1 ||
+    ![1, 2].includes(p.version) ||
     typeof p.name !== 'string' ||
     typeof p.notes !== 'string' ||
     typeof p.targetEnabled !== 'boolean' ||
@@ -371,6 +373,9 @@ export function parseProject(value: unknown): Project {
         (f.region !== undefined && !validRegion(f.region)) ||
         (f.regionStatus !== undefined && !['following', 'uncertain'].includes(f.regionStatus)) ||
         (i > 0 && f.t <= p.frames[i - 1].t) ||
+        (f.worldPoints !== undefined && f.worldPoints !== null &&
+          (!Array.isArray(f.worldPoints) || f.worldPoints.length !== 33 ||
+            !f.worldPoints.every(q => point(q) && num(q.z) && Math.abs(q.z) <= 10))) ||
         (f.points !== null &&
           (!Array.isArray(f.points) ||
             f.points.length !== 33 ||

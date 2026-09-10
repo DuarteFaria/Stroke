@@ -9,6 +9,7 @@ The app is currently a **desktop beta (v0.2.0)**, with build targets for Windows
 ## Current features
 
 - Automatic pose tracking with progress and cancellation
+- Experimental **Vista 3D**: synchronized, rotatable upper-body skeleton with front, side, and top views; dashed bones and hollow joints show reduced visibility.
 - Optional detailed analysis (Heavy model, up to 30 fps)
 - Optional fixed athlete region, drawn on the video and saved with the project
 - Slow playback, frame stepping, looping, and wrist trails
@@ -51,6 +52,10 @@ GitHub Actions builds and publishes both installers after merges into main. Down
 6. Save the session as a `.stroke.json` project with **Guardar** or `Ctrl+S`.
 
 Project files contain analysis and edits, but not the source video. Keep the original footage alongside the project or reconnect it when prompted.
+
+For 3D, analyse a clip and select **Vista 3D**. Drag to rotate or use the view buttons and sliders. New analysis saves estimated hip-relative 3D landmarks in v2 projects; this app still opens v1 projects. Older analyses need the original video reanalysed, which replaces corrections within the selected segment through the existing confirmation flow. Save a copy first if you want to retain those edits. Older app releases cannot open v2 projects. Project files can now be up to 100 MB to accommodate both 2D and 3D data.
+
+The 3D view offers a short-window smoothed preview and an original-output toggle, independent of 2D corrections. Low-visibility joints are hidden by default and can be revealed. Smoothing may attenuate fast motion and does not fix incorrect depth or body geometry. The camera fits the selected clip at a fixed scale; reset restores the fitted view. Depth is inferred from a single camera and has not been validated for kayaking. Visibility is not depth accuracy. Missing estimates and marked transitions remain gaps. The view does not reconstruct the paddle, submerged limbs, boat-relative movement, or calibrated measurements; the existing angle readouts remain 2D.
 
 ## Project status
 
