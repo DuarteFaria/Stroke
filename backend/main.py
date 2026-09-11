@@ -129,7 +129,15 @@ def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=Non
                 points=None
                 if result.pose_landmarks:
                     points=[{'x':float((x0+p.x*(x1-x0))/source_w),'y':float((y0+p.y*(y1-y0))/source_h),'v':float(min(p.visibility,p.presence))} for p in result.pose_landmarks[0]]
-                frame={'t':t,'points':points,'quality':quality,'model':model.name}
+                # Hip-relative metres: never apply image crop offsets/scales to these.
+                world=None
+                landmarks=getattr(result,'pose_world_landmarks',None)
+                if points and landmarks and len(landmarks[0])==33:
+                    candidate=[{'x':float(p.x),'y':float(p.y),'z':float(p.z),
+                                'v':points[i]['v']} for i,p in enumerate(landmarks[0])]
+                    if all(math.isfinite(p[k]) and abs(p[k])<=10 for p in candidate for k in ('x','y','z')):
+                        world=candidate
+                frame={'t':t,'points':points,'worldPoints':world,'quality':quality,'model':model.name}
                 if restarted: frame['breakBefore']=True
                 if follower:
                     frame.update(region=active_region, regionStatus=follower.update(points))

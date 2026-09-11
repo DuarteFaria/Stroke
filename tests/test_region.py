@@ -31,12 +31,14 @@ def test_crop_uses_original_pixels_and_maps_landmarks(monkeypatch):
         def detect_for_video(self,frame,ms):
             assert frame.numpy_view().shape == (600,800,3)
             return SimpleNamespace(pose_landmarks=[[SimpleNamespace(
-                x=.25,y=.5,visibility=.9,presence=.8) for _ in range(33)]])
+                x=.25,y=.5,visibility=.9,presence=.8) for _ in range(33)]],
+                pose_world_landmarks=[[SimpleNamespace(x=.12,y=-.4,z=-.3) for _ in range(33)]])
     monkeypatch.setattr(main,'inspect_video',lambda _:dict(fps=1,duration=1,frameCount=1,width=2000,height=1000))
     monkeypatch.setattr(main.cv2,'VideoCapture',lambda _:Capture())
     monkeypatch.setattr(main.mp.tasks.vision.PoseLandmarker,'create_from_options',lambda _:Detector())
     result=main.analyze('unused',0,1,region={'x':.2,'y':.1,'width':.4,'height':.6})
     assert result['frames'][0]['points'][0] == pytest.approx({'x':.3,'y':.4,'v':.8})
+    assert result['frames'][0]['worldPoints'][0] == pytest.approx({'x':.12,'y':-.4,'z':-.3,'v':.8})
 
 
 def test_pixel_bounds_enclose_fractional_region():

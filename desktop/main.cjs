@@ -23,7 +23,7 @@ async function atomic(file, text) {
   finally { await fsp.rm(temp, { force: true }); }
 }
 function projectText(text) {
-  if (typeof text !== 'string' || Buffer.byteLength(text) > 30 * 1024 ** 2) throw Error('Projeto demasiado grande.');
+  if (typeof text !== 'string' || Buffer.byteLength(text) > 100 * 1024 ** 2) throw Error('Projeto demasiado grande.');
   const p = JSON.parse(text);
   if (!p || typeof p !== 'object' || !p.video || !Array.isArray(p.frames)) throw Error('Projeto inválido.');
   return text;
@@ -55,7 +55,7 @@ function installIPC() {
     const result = await dialog.showOpenDialog(win, { title: 'Abrir projeto', filters: [{ name: 'Projeto Stroke', extensions: ['json'] }], properties: ['openFile'] });
     if (result.canceled) return null;
     const file = result.filePaths[0];
-    if ((await fsp.stat(file)).size > 30 * 1024 ** 2) throw Error('Projeto com mais de 30 MB.');
+    if ((await fsp.stat(file)).size > 100 * 1024 ** 2) throw Error('Projeto com mais de 100 MB.');
     const text = projectText(await fsp.readFile(file, 'utf8'));
     const id = randomUUID(); pending.set(id, { file, video: (await locations())[file] || null });
     return { id, text };
