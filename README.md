@@ -17,6 +17,7 @@ The app is currently a **desktop beta (v0.2.0)**, with build targets for Windows
 - Catch and exit markers for either blade
 - Frame-by-frame marker adjustment, side changes, ignore/restore, and undo
 - Timing summary from confirmed markers: cadence and mean left/right time in water
+- Stroke comparisons: individual timing, left/right averages, and stroke replay
 - 2D elbow, knee, and paddle/reference angles
 - An editable ideal-motion overlay for visual comparison
 - Portable, versioned `.stroke.json` projects

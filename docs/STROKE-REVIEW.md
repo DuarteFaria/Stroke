@@ -26,11 +26,32 @@ are not independent ground truth until checked by a knowledgeable reviewer.
 
 ## What the numbers mean
 
+### Comparing strokes
+
+Choose **Comparar** in the left toolbar. **Pagaiada a pagaiada** lets you select
+two strokes (optionally filtering by side), compare their contact, recovery and
+cycle times, and replay either one. **Esquerda / direita** shows each side's mean,
+sample count and range, plus the signed right-minus-left difference.
+
+A contact time needs a confirmed catch/exit pair. Recovery and cycle duration
+also need the next same-side catch and one confirmed opposite catch in between.
+Ambiguous or unreviewed markers and camera cuts interrupt cycles. The final
+contact pair can therefore have a contact time without a complete cycle.
+
+For a desktop comparison smoke test on Windows, build the UI with
+`pnpm exec vite build --config vite.desktop.config.ts` from `app`, then run
+`.venv/Scripts/python.exe scripts/smoke_comparisons.py` from the repository root.
+It uses synthetic annotations and `docs/videos/front1.mp4` for playback only;
+an alternate local video of at least three seconds can be passed as an argument.
+Screenshots are saved under `build/comparison-screenshots`.
+
+### Timing summary
+
 - One blade entry counts as one stroke. Cadence is 60 divided by the mean time
   between consecutive confirmed alternating catches in the selected segment.
 - Time in water is the exit minus the preceding same-side catch. The displayed
   left/right values are means over complete confirmed pairs.
-- Unreviewed/ignored markers interrupt pairing. Missing exits, duplicate times,
+- Unreviewed markers interrupt pairing. Removed markers are ignored in all timing calculations. Missing exits, duplicate times,
   marked camera transitions, and tracking restarts do not form complete pairs.
 - Legacy manual markers count as reviewed. New automatic markers never count
   until confirmed. Changing an existing marker requires confirmation again.

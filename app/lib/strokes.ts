@@ -73,7 +73,7 @@ export function mergeSuggestions(events: EventMark[], suggestions: EventMark[], 
 }
 
 export function strokeSummary(p: Pick<Project, 'events' | 'frames' | 'transitions' | 'segment'>) {
-  const events = p.events.filter(e => e.t >= p.segment[0] && e.t <= p.segment[1]).sort((a,b) => a.t-b.t);
+  const events = p.events.filter(e => e.review !== 'skipped' && e.t >= p.segment[0] && e.t <= p.segment[1]).sort((a,b) => a.t-b.t);
   const pairs: { catch: EventMark; exit: EventMark; duration: number }[] = [];
   let incomplete = 0;
   for (const side of ['Left', 'Right']) {
@@ -103,4 +103,40 @@ export function strokeSummary(p: Pick<Project, 'events' | 'frames' | 'transition
     right: mean(pairs.filter(s => s.catch.side === 'Right').map(s => s.duration)),
     variation: interval !== null && intervals.length >= 3
       ? Math.sqrt(intervals.reduce((sum,x) => sum+(x-interval)**2,0)/intervals.length)/interval*100 : null };
+}
+
+export type ComparedStroke = {
+  id: string; side: EventMark['side']; start: number; exit: number;
+  end: number | null; water: number; recovery: number | null; cycle: number | null;
+};
+
+/** A contact pair can stand alone. A full cycle additionally needs an unambiguous
+ * same-side Catch/Exit/Catch sequence and one confirmed opposite catch. */
+export function comparisonStrokes(p: Pick<Project, 'events' | 'frames' | 'transitions' | 'segment'>): ComparedStroke[] {
+  const events = p.events.filter(e => e.review !== 'skipped' && e.t >= p.segment[0] && e.t <= p.segment[1]).sort((a,b) => a.t-b.t);
+  return strokeSummary(p).pairs.filter(pair => {
+    const inside = events.filter(e => e.t >= pair.catch.t && e.t <= pair.exit.t);
+    return inside.every(reviewed) && new Set(inside.map(e => e.t)).size === inside.length;
+  }).map(pair => {
+    const start = pair.catch;
+    const same = events.filter(e => e.side === start.side && e.t > start.t);
+    const next = same[1];
+    let end: number | null = null;
+    if (same[0]?.id === pair.exit.id && next?.kind === 'Catch' && reviewed(next) && next.t > pair.exit.t &&
+      !crossesBreak(p, start.t, next.t)) {
+      const window = events.filter(e => e.t >= start.t && e.t <= next.t);
+      const opposite = window.filter(e => e.kind === 'Catch' && e.side !== start.side);
+      if (window.every(reviewed) && new Set(window.map(e => e.t)).size === window.length &&
+        opposite.length === 1 && opposite[0].t > start.t && opposite[0].t < next.t) end = next.t;
+    }
+    return { id: start.id, side: start.side, start: start.t, exit: pair.exit.t, end,
+      water: pair.duration, recovery: end === null ? null : end-pair.exit.t, cycle: end === null ? null : end-start.t };
+  }).sort((a,b) => a.start-b.start);
+}
+
+export function comparisonStats(values: (number | null)[]) {
+  const valid = values.filter((v): v is number => v !== null && Number.isFinite(v));
+  const mean = valid.length ? valid.reduce((a,b) => a+b, 0)/valid.length : null;
+  return { count: valid.length, mean, min: valid.length ? Math.min(...valid) : null,
+    max: valid.length ? Math.max(...valid) : null };
 }
