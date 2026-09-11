@@ -23,6 +23,7 @@ The app is currently a **desktop beta (v0.2.0)**, with build targets for Windows
 - An editable ideal-motion overlay for visual comparison
 - Portable, versioned `.stroke.json` projects
 - Native Windows file dialogs, crash recovery, and remembered video locations
+- Light and dark themes, following the system by default and switchable from the header (**Tema claro** / **Tema escuro**)
 
 ![Stroke paddle annotation workspace](docs/screenshots/paddle-annotation.png)
 

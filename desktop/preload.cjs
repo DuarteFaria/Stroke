@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('strokeDesktop', {
   recover: () => ipcRenderer.invoke('stroke:recover'),
   snapshot: (text, dirty) => ipcRenderer.invoke('stroke:snapshot', text, dirty),
   dirty: (value) => ipcRenderer.send('stroke:dirty', value),
+  theme: (value) => ipcRenderer.send('stroke:theme', value),
 });
