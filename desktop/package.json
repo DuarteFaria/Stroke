@@ -1,7 +1,7 @@
 {
   "name": "stroke-desktop",
   "productName": "Stroke",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Estúdio local de movimento em caiaque",
   "author": "Stroke",
   "private": true,
