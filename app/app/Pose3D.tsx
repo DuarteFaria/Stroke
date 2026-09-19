@@ -15,15 +15,15 @@ export default function Pose3D({ project, time, available }: { project: Project;
   const segmentFrames = useMemo(() => project.frames.filter(f => f.t >= project.segment[0] && f.t <= project.segment[1]), [project.frames, project.segment]);
   const previewFrames = useMemo(() => stabilizeWorld(segmentFrames, project.transitions), [segmentFrames, project.transitions]);
   const view = useMemo(() => worldViewBounds(previewFrames), [previewFrames]);
-  const pose = available && !excluded ? worldPoseAt(stabilized ? previewFrames : segmentFrames, time) : null;
+  const pose = available && !excluded ? worldPoseAt(stabilized ? previewFrames : segmentFrames, time, project.transitions) : null;
   const joints = UPPER_JOINTS.filter(j => !pose || showUncertain || pose[j].v >= .35);
   const projected = pose?.map(p => projectWorld(p, yaw, pitch, zoom, view));
   const bones = BONES.filter(([a, b]) => joints.includes(a) && joints.includes(b));
-  const color = (j: number) => [11, 13, 15].includes(j) ? '#4ee08a' : [12, 14, 16].includes(j) ? '#3fc8ff' : '#f2ede0';
+  const color = (j: number) => [11, 13, 15, 23].includes(j) ? '#4ee08a' : [12, 14, 16, 24].includes(j) ? '#3fc8ff' : '#f2ede0';
   const preset = (y: number, p: number) => { setYaw(y); setPitch(p); };
   return <section className="pose3d" aria-label="Vista 3D experimental">
     <header><h2>Movimento 3D</h2><span>Experimental</span></header>
-    <p>Estimativa do tronco e braços · {time.toFixed(2)} s · {stabilized ? 'Suavizada' : 'Original'}</p>
+    <p>Estimativa do tronco e braços · {time.toFixed(2)} s · {stabilized ? 'Estabilizada' : 'Original'}</p>
     <div className="pose3d-presets" aria-label="Orientação da vista">
       <button onClick={() => preset(0, 0)}>Original</button>
       <button onClick={() => preset(Math.PI / 2, 0)}>Rodar 90°</button>
@@ -43,22 +43,31 @@ export default function Pose3D({ project, time, available }: { project: Project;
       <defs><pattern id="pose3d-grid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="#ffffff0c" /></pattern></defs>
       <rect width="320" height="360" fill="url(#pose3d-grid)" />
       {pose && projected && joints.length > 0 ? <>
-        {bones.toSorted(([a,b], [c,d]) => (projected[c].depth + projected[d].depth) - (projected[a].depth + projected[b].depth)).map(([a,b]) => {
-          const uncertain = Math.min(pose[a].v, pose[b].v) < .7;
-          return <line key={`${a}-${b}`} x1={projected[a].x} y1={projected[a].y} x2={projected[b].x} y2={projected[b].y} stroke={color(b)} strokeWidth="4" strokeLinecap="round" strokeDasharray={uncertain ? '5 7' : undefined} opacity={uncertain ? .45 : 1} />;
-        })}
-        {joints.toSorted((a,b) => projected[b].depth - projected[a].depth).map(j => <circle key={j} cx={projected[j].x} cy={projected[j].y} r="5" fill={pose[j].v < .7 ? '#111' : color(j)} stroke={color(j)} strokeWidth="2"><title>{JOINTS[j]}{pose[j].v < .7 ? ' — visibilidade reduzida' : ''}</title></circle>)}
+        {[...bones.map(([a,b]) => ({kind: 'bone' as const, a, b, depth:(projected[a].depth+projected[b].depth)/2})),
+          ...joints.map(j => ({kind: 'joint' as const, a:j, b:j, depth:projected[j].depth}))]
+          .toSorted((a,b)=>b.depth-a.depth).map(item => {
+            const {a,b}=item;
+            if (item.kind === 'bone') {
+              const uncertain=Math.min(pose[a].v,pose[b].v)<.7;
+              return <line key={`bone-${a}-${b}`} x1={projected[a].x} y1={projected[a].y} x2={projected[b].x} y2={projected[b].y} stroke={color(b)} strokeWidth="4" strokeLinecap="round" strokeDasharray={uncertain ? '5 7' : undefined} opacity={uncertain ? .45 : 1} />;
+            }
+            return <g key={`joint-${a}`}>
+              <circle cx={projected[a].x} cy={projected[a].y} r="5" fill={pose[a].v<.7 ? '#111' : color(a)} stroke={color(a)} strokeWidth="2"><title>{JOINTS[a]}{pose[a].v<.7 ? ' — visibilidade reduzida' : ''}</title></circle>
+              {[15,16].includes(a) && <text x={projected[a].x+9} y={projected[a].y-9} fill={color(a)} stroke="#111" strokeWidth="3" paintOrder="stroke" fontSize="13" fontWeight="bold">{a===15 ? 'E' : 'D'}</text>}
+            </g>;
+          })}
       </> : <text x="160" y="180" textAnchor="middle" fill="#aaa" fontSize="13">{hasWorld ? 'Sem pontos visíveis suficientes' : 'Analisa o vídeo para obter 3D'}</text>}
     </svg>
-    <p className="pose3d-legend"><span>● Esquerda</span><span>● Direita</span></p>
+    <p className="pose3d-legend"><span>● E · Esquerda do atleta</span><span>● D · Direita do atleta</span></p>
     <div className="pose3d-options">
-      <label><input type="checkbox" checked={stabilized} onChange={e=>setStabilized(e.target.checked)} />Suavizar movimento</label>
+      <label><input type="checkbox" checked={stabilized} onChange={e=>setStabilized(e.target.checked)} />Estabilizar movimento e braços</label>
       <label><input type="checkbox" checked={showUncertain} onChange={e=>setShowUncertain(e.target.checked)} />Mostrar pontos muito incertos</label>
     </div>
     {pose && joints.length < UPPER_JOINTS.length && <p>{UPPER_JOINTS.length-joints.length} pontos ocultos por visibilidade reduzida.</p>}
     <label>Rotação <input aria-label="Rotação 3D" type="range" min={-180} max={180} value={yaw * 180 / Math.PI} onChange={e => setYaw(Number(e.target.value) * Math.PI / 180)} /></label>
     <label>Inclinação <input aria-label="Inclinação 3D" type="range" min={-90} max={90} value={pitch * 180 / Math.PI} onChange={e => setPitch(Number(e.target.value) * Math.PI / 180)} /></label>
     <label>Zoom <input aria-label="Zoom 3D" type="range" min={.5} max={3} step={.05} value={zoom} onChange={e => setZoom(Number(e.target.value))} /></label>
+    <p>Os lados pertencem ao atleta, mesmo quando rodas a vista. A profundidade é estimada; as correções 2D não alteram este esqueleto.</p>
     {!hasWorld && <p>Projetos antigos: volta a analisar o vídeo original. A nova análise substitui as correções no trecho selecionado.</p>}
   </section>;
 }
