@@ -82,7 +82,8 @@ Each successful main build creates a release tagged `desktop-build-<run number>`
 
 ### Startup diagnostics
 
-The editor loads while the analyzer starts; API requests wait for analyzer readiness.
+The editor loads after analyzer readiness so its document connection policy includes
+the assigned analyzer origin. The persistent cache keeps repeat launches fast.
 `desktop.log` now records elapsed milliseconds for analyzer spawn, editor load and
 analyzer readiness, plus Python import time. The packaged entry restores
 `STROKE_MPL_CACHE` as `MPLCONFIGDIR` after PyInstaller's runtime hooks, so MediaPipe's

@@ -26,6 +26,18 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token, Origin: 'https://unrelated.example' } })).status, 403);
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } })).status, 200);
   const checks = ['renderer', 'authenticated analyzer', 'foreign origin rejected'];
+  // Main-process fetch bypasses the document CSP. Exercise the actual renderer
+  // on every CI run, even without a personal project/video fixture.
+  const rendererHealth = await run(`(async () => {
+    const {api,token}=await window.strokeDesktop.config();
+    const response=await fetch(api+'/health',{headers:{'X-Stroke-Token':token}});
+    if (!response.ok) throw Error('Renderer analyzer health: '+response.status);
+    return response.json();
+  })()`);
+  assert.equal(rendererHealth.ok,true);
+  assert.equal(rendererHealth.modelReady,true);
+  await waitFor(`!document.body.innerText.includes('Analisador desligado')`);
+  checks.push('renderer-to-analyzer connection under document CSP');
   if (process.env.STROKE_SMOKE_ANALYSIS_VIDEO) {
     const clip = await fs.readFile(process.env.STROKE_SMOKE_ANALYSIS_VIDEO);
     for (const quality of ['standard', 'detailed']) {

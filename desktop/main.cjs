@@ -232,12 +232,12 @@ else {
     try {
       await startServer();
       analyzerReady = startAnalyzer();
-      // Attach a rejection handler immediately, even while the renderer loads.
-      analyzerReady.catch(() => {});
+      // The document CSP must include the analyzer's assigned origin when it
+      // is served. Loading it earlier permanently blocks renderer API calls.
+      await analyzerReady;
       installIPC();
       await win.loadURL(origin);
       milestone('editor-loaded');
-      await analyzerReady;
       if (smoke) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         const result = await win.webContents.executeJavaScript(`({ title: document.title, text: document.body.innerText, bridge: !!window.strokeDesktop })`);
