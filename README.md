@@ -129,3 +129,18 @@ The core editor is in `app/app/Studio.tsx`, motion and project logic in `app/lib
 ## License
 
 Stroke is licensed under the [MIT License](LICENSE). Third-party dependencies and pose models retain their respective licenses.
+
+### 3D preview stabilization
+
+The stabilized preview keeps robust arm lengths within each continuous tracking
+run and preserves them between sampled frames. It corrects sudden complete
+left/right flips only when both shoulders and hips agree in image and world
+coordinates over adjacent samples. Crossed wrists or screen position alone never
+change side labels. Cuts, tracking restarts and missing estimates reset continuity.
+The first frame anchors identity; an initially mislabelled pose, isolated arm swap
+or incorrect depth can still require better tracking or reanalysis.
+
+The E/D labels and colours refer to the athlete's anatomical left/right, including
+when the view is rotated. Original output remains available, and raw saved analysis
+and 2D corrections are unchanged. Stable lengths are a display constraint, not
+calibrated anatomy or proof that the inferred pose is correct.

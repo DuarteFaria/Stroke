@@ -79,3 +79,14 @@ This uses separate test application data and a copy of the project. It checks th
 - Intel Mac/Linux packages and cloud features are deferred.
 
 Each successful main build creates a release tagged `desktop-build-<run number>` and marks it Latest, preserving older releases. The app version stays in `desktop/package.json`; the release build number distinguishes successive merges without automatic version commits. A version-tag build uses its `v<app version>` tag instead and rejects a mismatched version. Both installers must build and pass tests before publication. Uploads go to a draft first, so a failed upload cannot expose a release with only one installer. Reruns resume drafts, leave published releases unchanged, and skip superseded main commits. Download the current pair from [Latest release](https://github.com/DuarteFaria/Stroke/releases/latest).
+
+### Startup diagnostics
+
+The editor loads while the analyzer starts; API requests wait for analyzer readiness.
+`desktop.log` now records elapsed milliseconds for analyzer spawn, editor load and
+analyzer readiness, plus Python import time. The packaged entry restores
+`STROKE_MPL_CACHE` as `MPLCONFIGDIR` after PyInstaller's runtime hooks, so MediaPipe's
+Matplotlib dependency can reuse its font cache under the app's `cache/matplotlib`
+directory. Previously PyInstaller assigned a fresh temporary cache every launch.
+The first launch still builds the cache; subsequent launches reuse it. This does
+not bypass macOS signature or first-launch security checks.

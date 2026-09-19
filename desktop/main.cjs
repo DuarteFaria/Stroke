@@ -9,6 +9,9 @@ const root = path.resolve(__dirname, '..');
 const smoke = process.argv.includes('--smoke-test');
 if (smoke) app.setPath('userData', path.join(app.getPath('temp'), 'stroke-desktop-smoke'));
 let win, server, analyzer, origin, api, dirty = false, quitting = false;
+let analyzerReady;
+const launchedAt = performance.now();
+const milestone = name => log(`Startup ${name}: ${Math.round(performance.now() - launchedAt)} ms`);
 let projectPath = null, videoPath = null;
 let writeQueue = Promise.resolve();
 const token = randomBytes(32).toString('hex');
@@ -61,7 +64,7 @@ function handle(name, fn) {
   });
 }
 function installIPC() {
-  handle('config', () => ({ api, token, version: app.getVersion() }));
+  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion() }; });
   handle('openProject', async () => {
     const result = await dialog.showOpenDialog(win, { title: 'Abrir projeto', filters: [{ name: 'Projeto Stroke', extensions: ['json'] }], properties: ['openFile'] });
     if (result.canceled) return null;
@@ -163,7 +166,10 @@ async function startAnalyzer() {
   const temp = path.join(data(), 'analysis-temp'); await fsp.mkdir(temp, { recursive: true });
   // This directory is exclusively owned by this single-instance app.
   for (const file of await fsp.readdir(temp)) if (/^tmp.*\.mp4$/.test(file)) await fsp.rm(path.join(temp, file), { force: true });
-  analyzer = spawn(command, args, { cwd: app.isPackaged ? process.resourcesPath : root, windowsHide: true, env: { ...process.env, STROKE_TOKEN: token, STROKE_ORIGIN: origin, TEMP: temp, TMP: temp, TMPDIR: temp }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const cache = path.join(data(), 'cache', 'matplotlib');
+  await fsp.mkdir(cache, { recursive: true });
+  milestone('analyzer-spawn');
+  analyzer = spawn(command, args, { cwd: app.isPackaged ? process.resourcesPath : root, windowsHide: true, env: { ...process.env, STROKE_TOKEN: token, STROKE_ORIGIN: origin, STROKE_MPL_CACHE: cache, TEMP: temp, TMP: temp, TMPDIR: temp }, stdio: ['pipe', 'pipe', 'pipe'] });
   analyzer.stderr.on('data', chunk => log(chunk.toString()));
   analyzer.on('exit', (code) => {
     log(`Analyzer exited (${code})`);
@@ -175,6 +181,7 @@ async function startAnalyzer() {
     analyzer.once('error', err => { clearTimeout(timer); reject(err); });
     analyzer.once('exit', code => { clearTimeout(timer); reject(Error(`O analisador terminou (${code}).`)); });
     analyzer.stdout.on('data', chunk => {
+      log(chunk.toString().trim());
       buffer += chunk.toString();
       const match = buffer.match(/STROKE_READY=(\{[^\n]+\})/);
       if (match) { api = `http://127.0.0.1:${JSON.parse(match[1]).port}`; clearTimeout(timer); resolve(); }
@@ -182,6 +189,7 @@ async function startAnalyzer() {
   });
   const response = await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } });
   if (!response.ok || !(await response.json()).modelReady) throw Error('O modelo de análise não está disponível.');
+  milestone('analyzer-ready');
 }
 async function stop() {
   quitting = true;
@@ -222,7 +230,14 @@ else {
     ]));
     await win.loadFile(path.join(__dirname, 'loading.html'), { query: { theme } });
     try {
-      await startServer(); await startAnalyzer(); installIPC(); await win.loadURL(origin);
+      await startServer();
+      analyzerReady = startAnalyzer();
+      // Attach a rejection handler immediately, even while the renderer loads.
+      analyzerReady.catch(() => {});
+      installIPC();
+      await win.loadURL(origin);
+      milestone('editor-loaded');
+      await analyzerReady;
       if (smoke) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         const result = await win.webContents.executeJavaScript(`({ title: document.title, text: document.body.innerText, bridge: !!window.strokeDesktop })`);
