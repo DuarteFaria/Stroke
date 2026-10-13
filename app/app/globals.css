@@ -1377,13 +1377,15 @@ textarea {
   color: var(--muted);
   white-space: nowrap;
 }
+/* Counts sit in their own right-aligned column. */
 .lane-label small {
+  margin-left: auto;
   color: var(--faint);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 .lane-label .lane-tool {
-  margin-left: auto;
+  margin-left: -2px;
   padding: 3px;
   border-color: transparent;
   background: none;
@@ -1489,12 +1491,16 @@ textarea {
 .lane.lane-side {
   height: 28px;
 }
-.lane-side .lane-label::before {
+/* Every label keeps the dot's slot, so the names line up; only the side
+   lanes fill it. */
+.lane-label::before {
   content: '';
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+.lane-side .lane-label::before {
   background: var(--side);
 }
 .water {
