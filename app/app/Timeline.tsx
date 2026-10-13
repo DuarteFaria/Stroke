@@ -17,8 +17,18 @@ export const fmt = (t: number) =>
     .toString()
     .padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}`;
 const sideName = (s: EventMark['side']) => (s === 'Left' ? 'esquerda' : 'direita');
-const eventName = (e: EventMark) =>
+const eventName = (e: Pick<EventMark, 'kind' | 'side'>) =>
   `${e.kind === 'Catch' ? 'Entrada' : 'Saída'} · ${sideName(e.side)}`;
+/**
+ * As quatro marcações, pela ordem em que acontecem numa pagaiada: as teclas
+ * 1–4 seguem esta ordem, e a seguinte à última marcada fica sugerida.
+ */
+export const MARKS: { key: string; side: EventMark['side']; kind: EventMark['kind'] }[] = [
+  { key: '1', side: 'Left', kind: 'Catch' },
+  { key: '2', side: 'Left', kind: 'Exit' },
+  { key: '3', side: 'Right', kind: 'Catch' },
+  { key: '4', side: 'Right', kind: 'Exit' },
+];
 /** Uma marca de tempo por cada passo que caiba sem se atropelar. */
 function ticks(a: number, b: number) {
   const step =
@@ -95,7 +105,9 @@ export default function Timeline({
 }: Props) {
   const [picked, setPicked] = useState<Picked>(null);
   const [adjusting, setAdjusting] = useState(false);
-  const [side, setSide] = useState<EventMark['side']>('Left');
+  // A última marcação posta: fica escrita na linha em vez de abrir a marcação,
+  // para se poderem pôr várias seguidas.
+  const [placed, setPlaced] = useState<EventMark | null>(null);
   const [zoomPref, setZoomPref] = useState<boolean | null>(null);
   // Enquanto se arrasta uma pega o eixo fica parado, senão fugia ao rato.
   const [held, setHeld] = useState<{ edge: 'in' | 'out'; view: [number, number] } | null>(null);
@@ -132,6 +144,8 @@ export default function Timeline({
     onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
       if (unavailable || e.button !== 0) return;
       if ((e.target as HTMLElement).closest('button,[role="slider"]')) return;
+      // Carregar no vazio larga a marcação escolhida; a ajustar, fica.
+      if (!adjusting) setPicked(null);
       e.currentTarget.setPointerCapture(e.pointerId);
       scrubbing.current = true;
       seek(timeAt(e.clientX, e.currentTarget));
@@ -203,6 +217,7 @@ export default function Timeline({
     picked?.kind === 'transition' ? p.transitions?.[picked.index] : undefined;
   const choose = (e: EventMark) => {
     setPicked({ kind: 'event', id: e.id });
+    setPlaced(null);
     setAdjusting(false);
     replay(Math.max(s0, e.t - 0.6), Math.min(s1, e.t + 0.6));
   };
@@ -219,7 +234,27 @@ export default function Timeline({
     patch(active, { t: next, source: 'manual', review: 'suggested' });
     seek(next);
   };
-  const add = (kind: EventMark['kind']) => {
+  /** A seguinte à última marcação antes do cursor, pela ordem de MARKS. */
+  const prev = events.filter((e) => e.t <= time + 0.5 / fps).at(-1);
+  const next = prev
+    ? MARKS[(MARKS.findIndex((m) => m.side === prev.side && m.kind === prev.kind) + 1) % 4]
+    : undefined;
+  /**
+   * Põe uma marcação e deixa a linha pronta para a seguinte: não abre a que
+   * acabou de pôr. Carregar duas vezes no mesmo fotograma não a duplica.
+   */
+  const add = (side: EventMark['side'], kind: EventMark['kind']) => {
+    const same = p.events.find(
+      (x) =>
+        x.review !== 'skipped' &&
+        x.side === side &&
+        x.kind === kind &&
+        Math.abs(x.t - time) < 0.5 / fps,
+    );
+    if (same) {
+      setPlaced(same);
+      return;
+    }
     const e: EventMark = {
       id: crypto.randomUUID(),
       t: time,
@@ -229,15 +264,15 @@ export default function Timeline({
       review: 'confirmed',
     };
     commit({ ...p, events: [...p.events, e].sort((a, b) => a.t - b.t) });
-    setPicked({ kind: 'event', id: e.id });
+    setPicked(null);
     setAdjusting(false);
-    seek(e.t);
+    setPlaced(e);
   };
   const close = () => {
     setPicked(null);
     setAdjusting(false);
   };
-  /** E marca uma entrada, S uma saída; Esc fecha a marcação escolhida. */
+  /** 1–4 marcam (pela ordem de MARKS); Esc fecha a marcação escolhida. */
   const keyboard = useEffectEvent((e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -246,12 +281,10 @@ export default function Timeline({
       close();
       return;
     }
-    const kind = { e: 'Catch', s: 'Exit' }[e.key.toLowerCase()] as
-      | EventMark['kind']
-      | undefined;
-    if (!kind || unavailable || !inSegment || adjusting || keysOff) return;
+    const mark = MARKS.find((m) => m.key === e.key);
+    if (!mark || unavailable || !inSegment || adjusting || keysOff) return;
     e.preventDefault();
-    add(kind);
+    add(mark.side, mark.kind);
   });
   useEffect(() => {
     const fn = (e: KeyboardEvent) => keyboard(e);
@@ -314,6 +347,7 @@ export default function Timeline({
                   onClick={() => {
                     patch(active, { review: 'confirmed' });
                     seek(active.t);
+                    close();
                   }}
                 >
                   Confirmar
@@ -404,7 +438,7 @@ export default function Timeline({
             <button
               className="ctx-close"
               aria-label="Fechar a marcação"
-              title="Fechar"
+              title="Fechar (Esc, ou carrega fora)"
               onClick={close}
             >
               <X size={14} />
@@ -447,32 +481,33 @@ export default function Timeline({
           </>
         ) : (
           <>
-            <span className="ctx-label">Marcar aqui</span>
-            <fieldset className="side-pick">
-              <legend className="sr-only">Pá para novas marcações</legend>
-              {(['Left', 'Right'] as const).map((s) => (
-                <button
-                  key={s}
-                  aria-pressed={side === s}
-                  disabled={unavailable}
-                  onClick={() => setSide(s)}
-                  title={`Novas marcações na pá ${sideName(s)}`}
-                >
-                  <i className={`side-dot side-${s}`} />
-                  {s === 'Left' ? 'Esq.' : 'Dir.'}
-                </button>
-              ))}
-            </fieldset>
-            {(['Catch', 'Exit'] as const).map((kind) => (
-              <button
-                key={kind}
-                disabled={unavailable || outside}
-                title={`${kind === 'Catch' ? 'Entrada' : 'Saída'} da pá ${sideName(side)} neste fotograma (${kind === 'Catch' ? 'E' : 'S'})`}
-                onClick={() => add(kind)}
-              >
-                {kind === 'Catch' ? '↓ Entrada' : '↑ Saída'}
-              </button>
+            {(['Left', 'Right'] as const).map((s) => (
+              <fieldset key={s} className={`mark-group side-${s}`}>
+                <legend>
+                  <i className="side-dot" />
+                  {s === 'Left' ? 'Esquerda' : 'Direita'}
+                </legend>
+                {MARKS.filter((m) => m.side === s).map((m) => (
+                  <button
+                    key={m.key}
+                    className="mark-btn"
+                    data-next={(next === m && !outside && !unavailable) || undefined}
+                    disabled={unavailable || outside}
+                    title={`${eventName(m)} neste fotograma (${m.key})${next === m ? ' · a seguinte' : ''}`}
+                    onClick={() => add(m.side, m.kind)}
+                  >
+                    {m.kind === 'Catch' ? '↓ Entrada' : '↑ Saída'}
+                    <kbd>{m.key}</kbd>
+                  </button>
+                ))}
+              </fieldset>
             ))}
+            {placed && p.events.some((x) => x.id === placed.id && x.review !== 'skipped') && (
+              <small className="ctx-why placed" key={placed.id}>
+                <i className={`side-dot side-${placed.side}`} />
+                {eventName(placed)} em {placed.t.toFixed(2)} s · Ctrl+Z anula
+              </small>
+            )}
             <span className="ctx-sep" />
             <button
               disabled={
@@ -592,7 +627,7 @@ export default function Timeline({
           </Lane>
         )}
         {flagGroups.length > 0 && (
-          <Lane name="Rever" note={<small>{flags.length}</small>} track={track}>
+          <Lane name="Avisos" note={<small>{flags.length}</small>} track={track}>
             {flagGroups.filter((g) => seen(g.t)).map((g) => {
               const what = g.list
                 .map(

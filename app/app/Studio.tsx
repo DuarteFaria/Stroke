@@ -5,6 +5,7 @@ import Pose3D from './Pose3D';
 import { useDrawing, DrawingLayer, DrawingToolbar } from './Drawing';
 import ThemeToggle from './ThemeToggle';
 import Timeline, { fmt, type EditMode } from './Timeline';
+import Shortcuts from './Shortcuts';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -257,6 +258,7 @@ export default function Studio() {
     [showAngles, setShowAngles] = useState(true),
     [selected, setSelected] = useState('15'),
     [placing, setPlacing] = useState<string | null>(null),
+    [keysOpen, setKeysOpen] = useState(false),
     [note, setNote] = useState<{ text: string; tone: Tone }>({
       text: '',
       tone: 'info',
@@ -628,14 +630,18 @@ export default function Studio() {
     }
     if (mod || e.altKey || el.closest('[role="dialog"]')) return;
     const seg = current.current.segment;
+    if (e.key === '?') {
+      e.preventDefault();
+      setKeysOpen(true);
+      return;
+    }
     // Letras e números valem com o foco num botão: não o carregam.
     if (e.key.toLowerCase() === 'f' && src) {
       togglePresent();
       return;
     }
-    const tools: Record<string, EditMode> = { '1': 'correct', '2': 'paddle', '3': 'target' };
-    if (tools[e.key] && src) {
-      selectMode(tools[e.key]);
+    if (e.key.toLowerCase() === 'g' && src && !drawing.on) {
+      selectMode(mode === 'target' ? 'correct' : 'target');
       return;
     }
     // I e O, como nos editores de vídeo: o trecho começa ou acaba aqui.
@@ -646,7 +652,9 @@ export default function Studio() {
         commit(setSegment(edge, t, current.current));
       return;
     }
-    if (el.closest('button,summary,[role="combobox"],[role="slider"]')) return;
+    // Espaço e setas são do vídeo mesmo com o foco num botão que se carregou
+    // antes (Entrada, Repetir…); só os controlos que as usam ficam com elas.
+    if (el.closest('[role="combobox"],[role="listbox"],[role="menu"],[role="slider"]')) return;
     if (e.code === 'Space') {
       e.preventDefault();
       togglePlay();
@@ -1367,47 +1375,15 @@ export default function Studio() {
           Ângulos
         </Toggle>
       </fieldset>
-      <details className="shortcuts">
-        <summary title="Atalhos do teclado">
-          <Keyboard size={14} />
-          <span className="sr-only">Atalhos</span>
-        </summary>
-        <ul>
-          <li>
-            <kbd>Espaço</kbd> reproduzir
-          </li>
-          <li>
-            <kbd>←</kbd> <kbd>→</kbd> um fotograma
-          </li>
-          <li>
-            <kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd> um segundo
-          </li>
-          <li>
-            <kbd>Home</kbd> <kbd>End</kbd> início e fim do trecho
-          </li>
-          <li>
-            <kbd>I</kbd> <kbd>O</kbd> trecho começa e acaba aqui
-          </li>
-          <li>
-            <kbd>E</kbd> <kbd>S</kbd> marcar entrada e saída
-          </li>
-          <li>
-            <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Corpo, Pagaia, Ideal
-          </li>
-          <li>
-            <kbd>D</kbd> desenhar
-          </li>
-          <li>
-            <kbd>F</kbd> apresentar ao atleta
-          </li>
-          <li>
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> anular
-          </li>
-          <li>
-            <kbd>Ctrl</kbd>+<kbd>S</kbd> guardar
-          </li>
-        </ul>
-      </details>
+      <button
+        className="shortcuts"
+        title="Atalhos do teclado (?)"
+        onClick={() => setKeysOpen(true)}
+      >
+        <Keyboard size={14} />
+        <kbd>?</kbd>
+        <span className="sr-only">Atalhos do teclado</span>
+      </button>
       <button
         className="present"
         aria-pressed={present}
@@ -1534,22 +1510,17 @@ export default function Studio() {
           <span className="rail-sep" />
           <fieldset className="rail-group">
             <legend className="sr-only">O que editas no vídeo</legend>
-            {(Object.keys(MODES) as EditMode[]).map((key, i) => {
-              const Icon = MODES[key].icon;
-              return (
-                <button
-                  key={key}
-                  className="rail-btn"
-                  aria-pressed={mode === key && !drawing.on}
-                  disabled={!src}
-                  title={`${MODES[key].label}: ${MODES[key].hud.toLowerCase()} (${i + 1})`}
-                  onClick={() => selectMode(key, true)}
-                >
-                  <Icon size={19} />
-                  <span>{MODES[key].label}</span>
-                </button>
-              );
-            })}
+            {/* Os pontos do corpo arrastam-se sempre; Ideal liga e desliga. */}
+            <button
+              className="rail-btn"
+              aria-pressed={mode === 'target' && !drawing.on}
+              disabled={!src}
+              title={`Ideal: ${MODES.target.hud.toLowerCase()} (G)`}
+              onClick={() => selectMode(mode === 'target' && !drawing.on ? 'correct' : 'target')}
+            >
+              <Target size={19} />
+              <span>Ideal</span>
+            </button>
             <button
               className="rail-btn"
               aria-pressed={drawing.on}
@@ -2003,12 +1974,14 @@ export default function Studio() {
           }}
           onKey={(m, t) => {
             seek(t);
-            if (m !== mode) selectMode(m);
+            // A pagaia já não tem ferramenta: os pontos editados só se mostram.
+            if (m !== 'paddle' && m !== mode) selectMode(m);
           }}
         >
           {transport}
         </Timeline>
       )}
+      <Shortcuts open={keysOpen} onOpenChange={setKeysOpen} />
       <AlertDialog
         open={confirmOpen}
         onOpenChange={(open) => {
