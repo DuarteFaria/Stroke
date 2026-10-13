@@ -362,7 +362,7 @@ type Gesture =
   | { kind: 'shape'; draft: Drawing; start: Px; moved: boolean }
   | { kind: 'move'; id: string; start: Px; from: Px[]; moved: boolean }
   | { kind: 'handle'; id: string; index: number; from: Px[] }
-  | { kind: 'erase'; removed: Set<string> }
+  | { kind: 'erase'; removed: Set<string>; last?: Px }
   | { kind: 'angle'; start: Px }
   | { kind: 'laser' };
 type Editing = { id: string | null; x: number; y: number; value: string; size: Size; color: string };
@@ -451,13 +451,13 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
       : { x: round(d.pose[j].x), y: round(d.pose[j].y), joint: j };
   }
   const grabs = (x: Drawing) => tol + (sw(x.size) / 2) * (x.kind === 'highlighter' ? 3.4 : 1);
-  function hitAt(p: Px, opts: { edge?: boolean; only?: DrawingKind } = {}) {
+  function hitAt(p: Px, opts: { edge?: boolean; only?: DrawingKind; skip?: Set<string> } = {}) {
     const P = px(p);
     // Spotlights sit under everything else, so they are tried last.
     for (const spots of [false, true])
       for (let i = list.length - 1; i >= 0; i--) {
         const x = list[i];
-        if ((x.kind === 'spotlight') !== spots || (opts.only && x.kind !== opts.only)) continue;
+        if ((x.kind === 'spotlight') !== spots || (opts.only && x.kind !== opts.only) || opts.skip?.has(x.id)) continue;
         if (visibility(x, d.time) <= 0) continue;
         const pts = resolvePoints(x, d.pose).map(px);
         if (hitTest(x, pts, P, grabs(x), { font: fontOf(x.size), measure, edge: opts.edge })) return x;
@@ -635,11 +635,20 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
   function erase(p: Px) {
     const g = gesture.current;
     if (g?.kind !== 'erase') return;
-    const hit = hitAt(p, { edge: true });
-    if (hit && !g.removed.has(hit.id)) {
-      g.removed.add(hit.id);
-      setPreview(d.drawings.filter((x) => !g.removed.has(x.id)));
+    // Walk the gap since the last event so a quick swipe cannot skip a stroke.
+    const from = g.last ?? p;
+    const steps = Math.max(1, Math.ceil(Math.hypot((p.x - from.x) * w, (p.y - from.y) * h) / (tol * 0.8)));
+    g.last = p;
+    let changed = false;
+    for (let i = 1; i <= steps; i++) {
+      const q = { x: from.x + ((p.x - from.x) * i) / steps, y: from.y + ((p.y - from.y) * i) / steps };
+      const hit = hitAt(q, { edge: true, skip: g.removed });
+      if (hit) {
+        g.removed.add(hit.id);
+        changed = true;
+      }
     }
+    if (changed) setPreview(d.drawings.filter((x) => !g.removed.has(x.id)));
   }
   function move(e: React.PointerEvent<SVGSVGElement>) {
     if (!d.on) return;
@@ -789,11 +798,15 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
       box = textBox(width, at, font);
     const x = centre ? at.x - box.width / 2 : box.x,
       y = centre ? at.y - box.height / 2 : box.y;
-    const dark = isDark(color);
+    // A solid tag in the drawing's colour reads on any water; the letters take
+    // whichever of white or near-black contrasts with it.
+    const n = parseInt(color.slice(1), 16),
+      light = ((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11 > 150;
     return (
       <g key={key}>
-        <rect x={x} y={y} width={box.width} height={box.height} rx={font * 0.28} fill={dark ? '#ffffff' : '#0b0b09'} fillOpacity={dark ? 0.8 : 0.66} />
-        <text x={x + font * 0.35} y={y + font * 1.03} fill={color} fontSize={font} fontWeight={600} fontFamily={FAMILY}>
+        <rect x={x} y={y} width={box.width} height={box.height} rx={font * 0.28} fill={color}
+          stroke={isDark(color) ? '#ffffff' : '#000000'} strokeOpacity={0.35} strokeWidth={1 / scale} />
+        <text x={x + font * 0.35} y={y + font * 1.03} fill={light ? '#121212' : '#ffffff'} fontSize={font} fontWeight={600} fontFamily={FAMILY}>
           {text}
         </text>
       </g>
@@ -1077,7 +1090,8 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
             left: `${editing.x * 100}%`,
             top: `${editing.y * 100}%`,
             fontSize: `${fontOf(editing.size) * scale}px`,
-            color: editing.color,
+            background: editing.color,
+            color: editing.color === '#ffffff' ? '#121212' : '#ffffff',
           }}
           value={editing.value}
           maxLength={MAX_TEXT}
@@ -1128,6 +1142,40 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
             <Icon size={17} />
           </button>
         ))}
+        <hr />
+        {d.pose && (
+          <button
+            aria-label="Esqueleto"
+            aria-pressed={!d.hidePose}
+            title={d.hidePose ? 'Mostrar o esqueleto' : 'Esconder o esqueleto'}
+            onClick={() => d.setHidePose(!d.hidePose)}
+          >
+            <PersonStanding size={16} />
+          </button>
+        )}
+        {d.selected ? (
+          <>
+            <button aria-label="Duplicar" title="Duplicar (Ctrl+D)" onClick={d.duplicate}>
+              <Copy size={16} />
+            </button>
+            <button aria-label="Apagar" title="Apagar (Delete)" onClick={d.remove}>
+              <Trash2 size={16} />
+            </button>
+          </>
+        ) : (
+          <>
+            {d.here.length > 0 && (
+              <button aria-label="Limpar este momento" title="Limpar este momento" onClick={d.clearMoment}>
+                <BrushCleaning size={16} />
+              </button>
+            )}
+            {d.drawings.length > 0 && (
+              <button aria-label="Apagar tudo" title="Apagar todos os desenhos" onClick={d.clearAll}>
+                <Trash2 size={16} />
+              </button>
+            )}
+          </>
+        )}
       </div>
       <div className="drawing-bar" role="toolbar" aria-label="Estilo e ações do desenho" onPointerDown={keep}>
         <span className="drawing-group">
@@ -1184,44 +1232,10 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
             Clip inteiro
           </button>
         </fieldset>
-        <span className="drawing-group">
-          {d.pose && (
-            <button
-              aria-label="Esqueleto"
-              aria-pressed={!d.hidePose}
-              title={d.hidePose ? 'Mostrar o esqueleto' : 'Esconder o esqueleto'}
-              onClick={() => d.setHidePose(!d.hidePose)}
-            >
-              <PersonStanding size={16} />
-            </button>
-          )}
-          {d.selected ? (
-            <>
-              <button aria-label="Duplicar" title="Duplicar (Ctrl+D)" onClick={d.duplicate}>
-                <Copy size={16} />
-              </button>
-              <button aria-label="Apagar" title="Apagar (Delete)" onClick={d.remove}>
-                <Trash2 size={16} />
-              </button>
-            </>
-          ) : (
-            <>
-              {d.here.length > 0 && (
-                <button aria-label="Limpar este momento" title="Limpar este momento" onClick={d.clearMoment}>
-                  <BrushCleaning size={16} />
-                </button>
-              )}
-              {d.drawings.length > 0 && (
-                <button aria-label="Apagar tudo" title="Apagar todos os desenhos" onClick={d.clearAll}>
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </>
-          )}
-        </span>
         <button
           className="drawing-export"
-          title="Guardar este fotograma com os desenhos (PNG)"
+          aria-label="Exportar imagem"
+          title="Exportar imagem: este fotograma com os desenhos (PNG)"
           onClick={(e) => void d.exportImage(e.currentTarget)}
         >
           <ImageDown size={16} />
