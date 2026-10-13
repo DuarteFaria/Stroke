@@ -86,7 +86,7 @@ const TOOLS: { id: DrawTool; label: string; key: string; tip?: string; Icon: typ
   { id: 'text', label: 'Texto', key: 'T', Icon: Type },
   { id: 'angle', label: 'Ângulo', key: 'A', tip: 'três cliques, o do meio é o vértice', Icon: DraftingCompass },
   { id: 'plumb', label: 'Prumo', key: 'P', tip: 'vertical; arrasta para o lado para horizontal', Icon: SeparatorVertical },
-  { id: 'spotlight', label: 'Foco', key: 'F', tip: 'escurece o resto', Icon: Focus },
+  { id: 'spotlight', label: 'Foco', key: 'H', tip: 'escurece o resto', Icon: Focus },
   { id: 'laser', label: 'Laser', key: 'K', tip: 'desaparece sozinho', Icon: Zap },
   { id: 'eraser', label: 'Borracha', key: 'B', Icon: Eraser },
 ];
@@ -130,7 +130,9 @@ export function useDrawing(o: {
     [picked, setPicked] = useState<DrawTool>('pen'),
     [style, setStyle] = useState<Look>({ color: COLORS[0][0], size: 2, dashed: false, whole: false }),
     [selectedId, setSelectedId] = useState<string | null>(null),
-    [hidePose, setHidePose] = useState(false);
+    [hidePose, setHidePose] = useState(false),
+    /** On a small stage the style controls fold into one button; this is that popover. */
+    [styleOpen, setStyleOpen] = useState(false);
   const layerRef = useRef<LayerApi | null>(null);
   const drawings = o.project.drawings ?? NONE;
   const on = active && o.enabled;
@@ -147,6 +149,7 @@ export function useDrawing(o: {
       layerRef.current?.cancel();
       setSelectedId(null);
     }
+    setStyleOpen(false);
     setActive(value);
   }
   function pick(next: DrawTool) {
@@ -208,9 +211,15 @@ export function useDrawing(o: {
   }
   /** Devolve true quando a tecla era para o desenho. */
   const onKey = (e: KeyboardEvent): boolean => {
-    if (!o.enabled) return false;
+    if (!o.enabled || e.defaultPrevented) return false;
+    // Typing, menus and dialogs keep every key, Esc included.
     const el = e.target as HTMLElement | null;
-    if (el?.closest?.('input,textarea,select,[contenteditable="true"],[role="dialog"],[role="alertdialog"]'))
+    if (
+      el?.isContentEditable ||
+      el?.closest?.(
+        'input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="dialog"],[role="alertdialog"],[role="listbox"],[role="menu"],[role="combobox"]',
+      )
+    )
       return false;
     const mod = e.ctrlKey || e.metaKey,
       k = e.key.toLowerCase();
@@ -221,6 +230,10 @@ export function useDrawing(o: {
     }
     if (!on) return false;
     if (e.key === 'Escape') {
+      if (styleOpen) {
+        setStyleOpen(false);
+        return true;
+      }
       if (layerRef.current?.cancel()) return true;
       if (selected) setSelectedId(null);
       else open(false);
@@ -243,15 +256,22 @@ export function useDrawing(o: {
     return false;
   };
   /**
-   * Its own listener, so the Studio's keyboard handler needs no changes. The
-   * keys used here (D, tool letters, Delete, Ctrl+D, Esc) mean nothing else
-   * there, and Ctrl+Z / Ctrl+Y keep going to the project history.
+   * Its own listener, so the Studio's keyboard handler needs no changes.
+   * It listens in the capture phase, before any page-level handler: a key the
+   * drawing uses (D, tool letters, Delete, Ctrl+D, and Esc while drawing is
+   * open) is marked defaultPrevented and stopped there, so an outer Esc (e.g.
+   * leaving presentation mode) only fires once drawing is closed. Digits and
+   * F are never bound; Ctrl+Z / Ctrl+Y go on to the project history.
    */
-  const keyEvent = useEffectEvent((e: KeyboardEvent) => void onKey(e));
+  const keyEvent = useEffectEvent((e: KeyboardEvent) => {
+    if (!onKey(e)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  });
   useEffect(() => {
     const fn = (e: KeyboardEvent) => keyEvent(e);
-    window.addEventListener('keydown', fn);
-    return () => window.removeEventListener('keydown', fn);
+    window.addEventListener('keydown', fn, true);
+    return () => window.removeEventListener('keydown', fn, true);
   }, []);
   async function exportImage(from: Element) {
     const wrap = from.closest('.video-wrap');
@@ -299,6 +319,8 @@ export function useDrawing(o: {
     clearAll,
     hidePose,
     setHidePose,
+    styleOpen,
+    setStyleOpen,
     pose: o.pose,
     time: o.time,
     playing: o.playing,
@@ -559,6 +581,7 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
   function down(e: React.PointerEvent<SVGSVGElement>) {
     if (e.button !== 0 || !d.on) return;
     const p = local(e);
+    if (d.styleOpen) d.setStyleOpen(false);
     finishText();
     if (tool === 'laser') {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -1177,61 +1200,80 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
           </>
         )}
       </div>
-      <div className="drawing-bar" role="toolbar" aria-label="Estilo e ações do desenho" onPointerDown={keep}>
-        <span className="drawing-group">
-          {COLORS.map(([color, label]) => (
+      <div
+        className="drawing-bar"
+        role="toolbar"
+        aria-label="Estilo e ações do desenho"
+        data-open={d.styleOpen || undefined}
+        onPointerDown={keep}
+      >
+        <button
+          className="drawing-more"
+          aria-label="Cor, espessura e duração"
+          aria-expanded={d.styleOpen}
+          title="Cor, espessura e duração"
+          onClick={() => d.setStyleOpen(!d.styleOpen)}
+        >
+          <i className="drawing-more-swatch" style={{ background: look.color }} />
+          <i className="drawing-more-width" style={{ height: look.size * 2 }} />
+          <span>{look.whole ? 'Clip' : 'Momento'}</span>
+        </button>
+        <div className="drawing-style">
+          <span className="drawing-group">
+            {COLORS.map(([color, label]) => (
+              <button
+                key={color}
+                className="drawing-swatch"
+                aria-label={label}
+                aria-pressed={look.color === color}
+                title={label}
+                onClick={() => d.apply({ color })}
+              >
+                <i style={{ background: color }} />
+              </button>
+            ))}
+          </span>
+          <span className="drawing-group">
+            {SIZES.map(([size, label]) => (
+              <button
+                key={size}
+                className="drawing-size"
+                aria-label={label}
+                aria-pressed={look.size === size}
+                title={label}
+                onClick={() => d.apply({ size })}
+              >
+                <i style={{ height: size * 2 }} />
+              </button>
+            ))}
             <button
-              key={color}
-              className="drawing-swatch"
-              aria-label={label}
-              aria-pressed={look.color === color}
-              title={label}
-              onClick={() => d.apply({ color })}
-            >
-              <i style={{ background: color }} />
-            </button>
-          ))}
-        </span>
-        <span className="drawing-group">
-          {SIZES.map(([size, label]) => (
-            <button
-              key={size}
               className="drawing-size"
-              aria-label={label}
-              aria-pressed={look.size === size}
-              title={label}
-              onClick={() => d.apply({ size })}
+              aria-label="Tracejado"
+              aria-pressed={look.dashed}
+              title="Tracejado"
+              onClick={() => d.apply({ dashed: !look.dashed })}
             >
-              <i style={{ height: size * 2 }} />
+              <i className="dash" />
             </button>
-          ))}
-          <button
-            className="drawing-size"
-            aria-label="Tracejado"
-            aria-pressed={look.dashed}
-            title="Tracejado"
-            onClick={() => d.apply({ dashed: !look.dashed })}
-          >
-            <i className="dash" />
-          </button>
-        </span>
-        <fieldset className="drawing-seg">
-          <legend className="sr-only">Quando aparece</legend>
-          <button
-            aria-pressed={!look.whole}
-            title="Aparece neste momento do vídeo e pouco depois"
-            onClick={() => d.apply({ whole: false })}
-          >
-            Este momento
-          </button>
-          <button
-            aria-pressed={look.whole}
-            title="Fica visível no clip inteiro"
-            onClick={() => d.apply({ whole: true })}
-          >
-            Clip inteiro
-          </button>
-        </fieldset>
+          </span>
+          <fieldset className="drawing-seg">
+            <legend className="sr-only">Quando aparece</legend>
+            <button
+              aria-pressed={!look.whole}
+              title="Aparece neste momento do vídeo e pouco depois"
+              onClick={() => d.apply({ whole: false })}
+            >
+              Este momento
+            </button>
+            <button
+              aria-pressed={look.whole}
+              title="Fica visível no clip inteiro"
+              onClick={() => d.apply({ whole: true })}
+            >
+              Clip inteiro
+            </button>
+          </fieldset>
+        </div>
         <button
           className="drawing-export"
           aria-label="Exportar imagem"

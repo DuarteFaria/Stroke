@@ -1594,7 +1594,7 @@ aside .timing-summary dl { flex-direction: column; gap: 24px; margin: 24px 0; }
   padding: 3px;
   max-height: calc(100% - 60px);
   overflow-y: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 .drawing-rail hr {
   grid-column: 1 / -1;
@@ -1740,15 +1740,78 @@ aside .timing-summary dl { flex-direction: column; gap: 24px; margin: 24px 0; }
 .video-wrap {
   container: drawing-stage / inline-size;
 }
+/* Wide stage: the style controls sit inline in the bar. */
+.drawing-style {
+  display: contents;
+}
+.drawing-bar .drawing-more {
+  display: none;
+}
+.drawing-more i {
+  flex: none;
+}
+.drawing-more-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #ffffff59;
+}
+.drawing-more-width {
+  width: 14px;
+  border-radius: 2px;
+  background: currentColor;
+}
+/* Small stage: one row, never wrapping over the video. Colour, width and
+   lifetime fold behind one button that opens a popover under the bar;
+   Exportar imagem keeps its icon and its tooltip. The rail tightens up and
+   scrolls if the stage is shorter still. */
 @container drawing-stage (max-width: 760px) {
   .drawing-bar {
-    max-width: calc(100% - 96px);
-    gap: 2px 6px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 3px;
+    max-width: calc(100% - 90px);
+  }
+  .drawing-bar .drawing-more {
+    display: inline-flex;
+    width: auto;
+    gap: 7px;
+    padding: 0 9px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .drawing-style {
+    display: none;
+  }
+  .drawing-bar[data-open] .drawing-style {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 6px;
+    background: color-mix(in srgb, var(--sunk) 92%, transparent);
+    border: 1px solid var(--control-line);
+    border-radius: 8px;
+    backdrop-filter: blur(6px);
   }
   .drawing-bar .drawing-export {
     width: 32px;
     padding: 0;
     font-size: 0;
     gap: 0;
+  }
+  .drawing-rail {
+    top: 44px;
+    left: 8px;
+    grid-template-columns: repeat(2, 28px);
+    grid-auto-rows: 28px;
+    max-height: calc(100% - 52px);
+  }
+  .drawing-rail button {
+    width: 28px;
+    height: 28px;
   }
 }
