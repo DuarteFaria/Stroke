@@ -1,3 +1,4 @@
+import { parseDrawings, type Drawing } from './drawings.ts';
 export type Point = { x: number; y: number; v: number };
 /** Estimated hip-relative metres; v is visibility, not depth accuracy. */
 export type WorldPoint = Point & { z: number };
@@ -131,6 +132,8 @@ export type Project = {
   events: EventMark[];
   notes: string;
   targetEnabled: boolean;
+  /** Optional: older projects have none, and older releases ignore it. */
+  drawings?: Drawing[];
 };
 export const JOINTS: Record<number, string> = {
   0: 'Nariz',
@@ -423,5 +426,12 @@ export function parseProject(value: unknown): Project {
     return fail();
   if (new Set(p.events.map(e => e.id)).size !== p.events.length) return fail();
   p.events.sort((a, b) => a.t - b.t);
+  if (p.drawings !== undefined) {
+    try {
+      p.drawings = parseDrawings(p.drawings, p.video.duration);
+    } catch {
+      return fail();
+    }
+  }
   return p;
 }

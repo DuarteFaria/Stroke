@@ -1717,3 +1717,332 @@ textarea {
     top: 10px;
   }
 }
+
+/* ---- drawing ----
+   Telestrator over the video. Everything here floats on the stage, which is a
+   dark island in both themes, so it leans on the stage's own tokens. Drawing
+   colours live on the video only; the chrome stays warm neutral. */
+.drawing-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  touch-action: none;
+  overflow: hidden;
+}
+.drawing-layer[data-on] {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+.drawing-layer[data-tool='select'] {
+  cursor: default;
+}
+.drawing-layer[data-tool='text'] {
+  cursor: text;
+}
+.drawing-laser {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.video-wrap:has(.drawing-layer[data-hide-pose]) .overlay {
+  visibility: hidden;
+}
+.video-wrap:has(.drawing-layer[data-on]) .hud-mode {
+  display: none;
+}
+.drawing-toggle,
+.drawing-rail,
+.drawing-bar {
+  position: absolute;
+  z-index: 3;
+  color: var(--text);
+  background: color-mix(in srgb, var(--sunk) 84%, transparent);
+  border: 1px solid var(--control-line);
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+.drawing-toggle {
+  top: 10px;
+  right: 10px;
+  gap: 7px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+}
+.drawing-toggle:hover:not(:disabled) {
+  background: var(--control);
+}
+.drawing-rail {
+  top: 50px;
+  left: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 32px);
+  grid-auto-rows: 32px;
+  gap: 2px;
+  padding: 3px;
+  max-height: calc(100% - 60px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.drawing-rail hr {
+  grid-column: 1 / -1;
+  align-self: center;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.drawing-bar {
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 3px 4px 3px 8px;
+  max-width: calc(100% - 190px);
+}
+.drawing-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.drawing-rail button,
+.drawing-bar button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  border-radius: 6px;
+}
+.drawing-rail button:hover:not(:disabled),
+.drawing-bar button:hover:not(:disabled) {
+  background: var(--control);
+  color: var(--text);
+}
+.drawing-rail button[aria-pressed='true'],
+.drawing-bar button[aria-pressed='true'] {
+  background: var(--control-hover);
+  border-color: var(--control-line);
+  color: var(--text);
+}
+.drawing-swatch i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #ffffff59;
+}
+.drawing-swatch[aria-pressed='true'] i {
+  box-shadow:
+    0 0 0 2px var(--sunk),
+    0 0 0 3.5px var(--text);
+}
+.drawing-size i {
+  width: 16px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.drawing-size i.dash {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px);
+}
+.drawing-bar .drawing-seg {
+  display: inline-flex;
+  margin: 0;
+  min-width: 0;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.drawing-bar .drawing-seg button,
+.drawing-bar .drawing-export {
+  width: auto;
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  gap: 6px;
+}
+.drawing-bar .drawing-export {
+  height: 32px;
+  color: var(--text);
+  border-color: var(--control-line);
+}
+.drawing-hint {
+  position: absolute;
+  z-index: 3;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 20px);
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--control-line);
+  background: color-mix(in srgb, var(--sunk) 84%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.drawing-text-input {
+  position: absolute;
+  z-index: 3;
+  min-width: 8em;
+  margin: 0;
+  padding: 0.1em 0.35em;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px dashed #ffffffa6;
+  border-radius: 4px;
+}
+.drawing-text-input:focus {
+  outline: none;
+}
+.drawing-mark {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  min-height: 0;
+  margin: -4.5px 0 0 -4.5px;
+  padding: 0;
+  border: 1.5px solid var(--panel-2);
+  border-radius: 2px;
+  background: var(--text);
+  transform: rotate(45deg);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.drawing-mark:hover:not(:disabled) {
+  background: var(--text);
+  transform: rotate(45deg) scale(1.3);
+}
+/* The bar follows the size of the video, not the window: a small stage keeps
+   the export as an icon (its tooltip still says what it does). */
+.video-wrap {
+  container: drawing-stage / inline-size;
+}
+/* Wide stage: the style controls sit inline in the bar. */
+.drawing-style {
+  display: contents;
+}
+.drawing-bar .drawing-more {
+  display: none;
+}
+.drawing-more i {
+  flex: none;
+}
+.drawing-more-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #ffffff59;
+}
+.drawing-more-width {
+  width: 14px;
+  border-radius: 2px;
+  background: currentColor;
+}
+/* Small stage: one row, never wrapping over the video. Colour, width and
+   lifetime fold behind one button that opens a popover under the bar;
+   Exportar imagem keeps its icon and its tooltip. The rail tightens up and
+   scrolls if the stage is shorter still. */
+@container drawing-stage (max-width: 760px) {
+  .drawing-bar {
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 3px;
+    max-width: calc(100% - 90px);
+  }
+  .drawing-bar .drawing-more {
+    display: inline-flex;
+    width: auto;
+    gap: 7px;
+    padding: 0 9px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .drawing-style {
+    display: none;
+  }
+  .drawing-bar[data-open] .drawing-style {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 6px;
+    background: color-mix(in srgb, var(--sunk) 92%, transparent);
+    border: 1px solid var(--control-line);
+    border-radius: 8px;
+    backdrop-filter: blur(6px);
+  }
+  .drawing-bar .drawing-export {
+    width: 32px;
+    padding: 0;
+    font-size: 0;
+    gap: 0;
+  }
+  .drawing-rail {
+    top: 44px;
+    left: 8px;
+    grid-template-columns: repeat(2, 28px);
+    grid-auto-rows: 28px;
+    max-height: calc(100% - 52px);
+  }
+  .drawing-rail button {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ------------------------------------------- drawing inside the editor */
+.lane-track .sketch {
+  --bg: var(--text);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+}
+/* The drawing's own "Desenhar" button floats top-right in presentation;
+   the angle chips step down below it. */
+.video-wrap:has(.drawing-toggle) .angle-chips {
+  top: 52px;
+}
+.dock-head .present {
+  flex: none;
+  padding: 6px 11px;
+  font-size: 12.5px;
+}
+.dock-head .present[aria-pressed='true'] {
+  border-color: var(--text);
+}
+
+/* ------------------------------------------------------------ presenting
+   Showing the athlete: only the video, the transport and the trecho bar. */
+.studio[data-present] {
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding-top: 10px;
+}
+.studio[data-present] .topbar,
+.studio[data-present] .rail,
+.studio[data-present] .inspector,
+.studio[data-present] .dock-context,
+.studio[data-present] .lane:not(.lane-ruler) {
+  display: none;
+}
+.studio[data-present] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}

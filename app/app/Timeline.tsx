@@ -10,6 +10,7 @@ import {
   type Project,
 } from '@/lib/motion';
 import { reviewed } from '@/lib/strokes';
+import type { Drawing } from '@/lib/drawings';
 
 export const fmt = (t: number) =>
   `${Math.floor(t / 60)
@@ -47,6 +48,10 @@ type Props = {
   flags: MotionFlag[];
   bands: [number, number][];
   transitionStart: number | null;
+  /** Desenhos do telestrador; os presos a um momento aparecem na sua pista. */
+  drawings?: Drawing[];
+  /** O desenho está aberto e fica com as teclas de letras. */
+  keysOff?: boolean;
   commit: (p: Project) => void;
   seek: (t: number) => void;
   replay: (a: number, b: number) => void;
@@ -75,6 +80,8 @@ export default function Timeline({
   flags,
   bands,
   transitionStart,
+  drawings,
+  keysOff,
   commit,
   seek,
   replay,
@@ -242,7 +249,7 @@ export default function Timeline({
     const kind = { e: 'Catch', s: 'Exit' }[e.key.toLowerCase()] as
       | EventMark['kind']
       | undefined;
-    if (!kind || unavailable || !inSegment || adjusting) return;
+    if (!kind || unavailable || !inSegment || adjusting || keysOff) return;
     e.preventDefault();
     add(kind);
   });
@@ -276,6 +283,12 @@ export default function Timeline({
     return out;
   }, []);
   const transitions = p.transitions || [];
+  /** Desenhos presos a um momento; vários quase juntos contam como um. */
+  const drawingTimes = (drawings ?? [])
+    .filter((x) => !x.whole)
+    .map((x) => x.t)
+    .sort((a, b) => a - b)
+    .reduce<number[]>((out, t) => (out.length && t - out[out.length - 1] <= 0.05 ? out : [...out, t]), []);
   const showMarkers = tracked || events.length > 0;
   const outside = !hasVideo || !inSegment;
 
@@ -630,9 +643,21 @@ export default function Timeline({
             )}
           </Lane>
         )}
-        {/* Desenhos: a pista das marcas do telestrador entra aqui, com
-            <Lane name="Desenhos" track={track}>…</Lane>, posicionando cada
-            marca com style={{ left: at(t) }}. */}
+        {drawingTimes.length > 0 && (
+          <Lane name="Desenhos" note={<small>{drawingTimes.length}</small>} track={track}>
+            {drawingTimes.filter(seen).map((t) => (
+              <button
+                key={t}
+                className="sketch"
+                style={{ left: at(t) }}
+                disabled={unavailable}
+                title={`Desenho em ${fmt(t)}`}
+                aria-label={`Ir para o desenho em ${fmt(t)}`}
+                onClick={() => seek(t)}
+              />
+            ))}
+          </Lane>
+        )}
         <div className="lanes-axis" aria-hidden="true">
           {(s0 > view[0] || s1 < view[1]) && (
             <>

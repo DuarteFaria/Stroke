@@ -2,6 +2,7 @@
 import { TimingSummary } from './StrokeReview';
 import StrokeComparison from './StrokeComparison';
 import Pose3D from './Pose3D';
+import { useDrawing, DrawingLayer, DrawingToolbar } from './Drawing';
 import ThemeToggle from './ThemeToggle';
 import Timeline, { fmt, type EditMode } from './Timeline';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
@@ -39,6 +40,9 @@ import {
   Rotate3d,
   Columns2,
   PanelRightClose,
+  Brush,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -282,6 +286,8 @@ export default function Studio() {
   const [selectingRegion, setSelectingRegion] = useState(false);
   const [regionDraft, setRegionDraft] = useState<Region | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
+  // Apresentar: só o vídeo e o transporte, para mostrar ao atleta.
+  const [present, setPresent] = useState(false);
   const reviewLoop = useRef<[number, number] | null>(null);
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
@@ -606,6 +612,7 @@ export default function Studio() {
     if (e.key === 'Escape') {
       setPlacing(null);
       hush();
+      if (present) togglePresent();
       return;
     }
     if (busy || el.closest('input,textarea,select,[contenteditable="true"]')) return;
@@ -622,6 +629,10 @@ export default function Studio() {
     if (mod || e.altKey || el.closest('[role="dialog"]')) return;
     const seg = current.current.segment;
     // Letras e números valem com o foco num botão: não o carregam.
+    if (e.key.toLowerCase() === 'f' && src) {
+      togglePresent();
+      return;
+    }
     const tools: Record<string, EditMode> = { '1': 'correct', '2': 'paddle', '3': 'target' };
     if (tools[e.key] && src) {
       selectMode(tools[e.key]);
@@ -629,7 +640,7 @@ export default function Studio() {
     }
     // I e O, como nos editores de vídeo: o trecho começa ou acaba aqui.
     const k = e.key.toLowerCase();
-    if ((k === 'i' || k === 'o') && src) {
+    if ((k === 'i' || k === 'o') && src && !drawing.on) {
       const t = timeRef.current, edge = k === 'i' ? 'in' : 'out';
       if (edge === 'in' ? t < seg[1] - 0.1 : t > seg[0] + 0.1)
         commit(setSegment(edge, t, current.current));
@@ -659,6 +670,13 @@ export default function Studio() {
       seek(seg[1]);
     }
   });
+  useEffect(() => {
+    const fn = () => {
+      if (!document.fullscreenElement) setPresent(false);
+    };
+    document.addEventListener('fullscreenchange', fn);
+    return () => document.removeEventListener('fullscreenchange', fn);
+  }, []);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => keyboardEvent(event);
     window.addEventListener('keydown', handler);
@@ -862,6 +880,8 @@ export default function Studio() {
   );
   const reviewedPose = cautiousLegs(corrected, reviewFlags, time);
   const reviewedTarget = cautiousLegs(target, reviewFlags, time);
+  const drawing = useDrawing({ project: p, current, commit, time, playing,
+    pose: reviewedPose, enabled: !!src && !busy, askConfirm, say });
   const paddle = useMemo(() => keyAt(p.paddle, time, false), [p.paddle, time]);
   const targetPaddle = useMemo(() => {
     const delta = keyAt(p.targetPaddle, time);
@@ -1031,12 +1051,35 @@ export default function Studio() {
   }
   /** Corpo não tem propriedades: escolhê-lo deixa o painel como está. */
   function selectMode(next: EditMode, toggle = false) {
+    // Uma ferramenta de cada vez: escolher Corpo, Pagaia ou Ideal fecha o desenho.
+    if (drawing.on) {
+      drawing.open(false);
+      toggle = false;
+    }
     setMode(next);
     setPlacing(null);
     if (next === 'target') setShowTarget(true);
     if (next !== 'correct')
       setPanel((x) => (toggle && x === 'tool' && mode === next ? null : 'tool'));
     else setPanel((x) => (x === 'tool' ? null : x));
+  }
+  /** Desenhar é a quarta ferramenta: a paleta flutua no vídeo, sem painel. */
+  function toggleDrawing() {
+    const next = !drawing.on;
+    drawing.open(next);
+    if (next) {
+      setPlacing(null);
+      setPanel((x) => (x === 'tool' ? null : x));
+    }
+  }
+  function togglePresent() {
+    const next = !present;
+    setPresent(next);
+    // Ecrã inteiro quando o sistema deixa; se não deixar, fica só a janela limpa.
+    const doc = document;
+    if (next && !doc.fullscreenElement)
+      void doc.documentElement.requestFullscreen?.().catch(() => {});
+    if (!next && doc.fullscreenElement) void doc.exitFullscreen?.().catch(() => {});
   }
   function openView(next: Panel) {
     setPanel((x) => (x === next ? null : next));
@@ -1068,6 +1111,7 @@ export default function Studio() {
   }
   function toggleRegion() {
     video.current?.pause();
+    if (drawing.on) drawing.open(false);
     if (!selectingRegion) seek(p.segment[0]);
     setSelectingRegion(!selectingRegion);
     setRegionDraft(null);
@@ -1351,6 +1395,12 @@ export default function Studio() {
             <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Corpo, Pagaia, Ideal
           </li>
           <li>
+            <kbd>D</kbd> desenhar
+          </li>
+          <li>
+            <kbd>F</kbd> apresentar ao atleta
+          </li>
+          <li>
             <kbd>Ctrl</kbd>+<kbd>Z</kbd> anular
           </li>
           <li>
@@ -1358,10 +1408,24 @@ export default function Studio() {
           </li>
         </ul>
       </details>
+      <button
+        className="present"
+        aria-pressed={present}
+        disabled={!src}
+        title={present ? 'Voltar ao editor (F ou Esc)' : 'Só o vídeo, para mostrar ao atleta (F)'}
+        onClick={togglePresent}
+      >
+        {present ? <Minimize size={15} /> : <Maximize size={15} />}
+        {present ? 'Voltar' : 'Apresentar'}
+      </button>
     </>
   );
   return (
-    <main className="studio" data-video={src ? 'loaded' : undefined}>
+    <main
+      className="studio"
+      data-video={src ? 'loaded' : undefined}
+      data-present={(present && !!src) || undefined}
+    >
       <header className="topbar">
         <div className="file">
           <strong
@@ -1476,7 +1540,7 @@ export default function Studio() {
                 <button
                   key={key}
                   className="rail-btn"
-                  aria-pressed={mode === key}
+                  aria-pressed={mode === key && !drawing.on}
                   disabled={!src}
                   title={`${MODES[key].label}: ${MODES[key].hud.toLowerCase()} (${i + 1})`}
                   onClick={() => selectMode(key, true)}
@@ -1486,7 +1550,16 @@ export default function Studio() {
                 </button>
               );
             })}
-            {/* Desenhar: o telestrador entra aqui como mais uma ferramenta. */}
+            <button
+              className="rail-btn"
+              aria-pressed={drawing.on}
+              disabled={!src || busy}
+              title="Desenhar por cima do vídeo (D)"
+              onClick={toggleDrawing}
+            >
+              <Brush size={19} />
+              <span>Desenhar</span>
+            </button>
           </fieldset>
           <span className="rail-sep" />
           {VIEWS.map(([key, label, Icon]) => (
@@ -1570,6 +1643,7 @@ export default function Studio() {
                   showTarget &&
                   paddleDrawing(targetPaddle, INK.target, true)}
               </svg>
+              <DrawingLayer d={drawing} />
               <div className="hud">
                 <span className="hud-time">{fmt(time)}</span>
                 {(selectingRegion || (tracked && inSegment)) && (
@@ -1578,7 +1652,7 @@ export default function Studio() {
                   </span>
                 )}
               </div>
-              {showAngles && !busy && corrected && (
+              {showAngles && !busy && corrected && !drawing.on && (
                 <dl
                   className="angle-chips"
                   title="Ângulos medidos na imagem plana, não em 3D."
@@ -1612,6 +1686,7 @@ export default function Studio() {
                   <button onClick={cancelJob}>Cancelar</button>
                 </div>
               )}
+              {(drawing.on || present) && <DrawingToolbar d={drawing} />}
             </div>
           ) : (
             <div className="empty">
@@ -1911,6 +1986,8 @@ export default function Studio() {
           flags={reviewFlags}
           bands={bands}
           transitionStart={transitionStart}
+          drawings={p.drawings}
+          keysOff={drawing.on}
           commit={commit}
           seek={seek}
           replay={replayStroke}
