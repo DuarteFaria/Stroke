@@ -92,31 +92,23 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   }
   if (process.env.STROKE_SMOKE_COMPARISONS) {
     await click('Comparar');
-    await waitFor(`document.querySelector('.stroke-comparison')?.innerText.includes('4 pares entrada/saída confirmados · 3 ciclos completos')`);
+    await waitFor(`document.querySelectorAll('.stroke-bars button').length === 4`);
     assert.equal(await run(`!!document.querySelector('.comparison-curve')`),false);
     assert.equal(await run(`document.querySelector('.comparison-table tbody tr td').textContent`),'0.30 s');
-    await click('Rever A');
+    assert.equal(await run(`document.querySelector('.comparison-verdict').textContent`),'A direita fica 0.10 s mais na água do que a esquerda (25%).');
+    await run(`document.querySelector('.stroke-bars button').click()`);
     await waitFor(`!document.querySelector('video').paused`);
     await run(`document.querySelector('video').pause()`);
-    await run(`(() => { const s = document.querySelector('select[aria-label="Pagaiada B"]'); s.value = 'e'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`);
-    await waitFor(`document.querySelector('select[aria-label="Pagaiada B"]').value === 'e' && document.querySelector('.comparison-table tbody tr td:last-child').textContent === '0.00 s'`);
-    await run(`(() => { const s = document.querySelector('select[aria-label="Pagaiada B"]'); s.value = 'c'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`);
     await run(`document.querySelector('.stroke-comparison').scrollIntoView()`);
     await settle();
-    await capture('comparison-strokes.png');
-    await click('Esquerda / direita');
-    await waitFor(`document.querySelector('.comparison-table').innerText.includes('Direita − esquerda')`);
-    assert.equal(await run(`document.querySelector('.comparison-table tbody tr td:last-child').textContent`),'+0.10 s');
-    assert.equal(await run(`!!document.querySelector('.comparison-curve')`),false);
-    await settle();
-    await capture('comparison-sides.png');
+    await capture('comparison.png');
     win.setSize(1024,768);
     await settle();
     await run(`document.querySelector('.stroke-comparison').scrollIntoView()`);
     await settle();
     assert.equal(await run(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`),true);
     await capture('comparison-compact.png');
-    checks.push('stroke selections and timing', 'stroke replay', 'left/right means and signed differences', 'comparison compact layout');
+    checks.push('left/right means and verdict', 'per-stroke bars and replay', 'comparison compact layout');
     return checks;
   }
   await click('Analisar a minha pagaiada');
