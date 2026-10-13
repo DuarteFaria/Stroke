@@ -482,24 +482,24 @@ export default function Timeline({
         ) : (
           <>
             {(['Left', 'Right'] as const).map((s) => (
-              <fieldset key={s} className={`mark-group side-${s}`}>
-                <legend>
-                  <i className="side-dot" />
-                  {s === 'Left' ? 'Esquerda' : 'Direita'}
-                </legend>
-                {MARKS.filter((m) => m.side === s).map((m) => (
-                  <button
-                    key={m.key}
-                    className="mark-btn"
-                    data-next={(next === m && !outside && !unavailable) || undefined}
-                    disabled={unavailable || outside}
-                    title={`${eventName(m)} neste fotograma (${m.key})${next === m ? ' · a seguinte' : ''}`}
-                    onClick={() => add(m.side, m.kind)}
-                  >
-                    {m.kind === 'Catch' ? '↓ Entrada' : '↑ Saída'}
-                    <kbd>{m.key}</kbd>
-                  </button>
-                ))}
+              <fieldset key={s} className={`mark-side side-${s}`}>
+                <legend className="sr-only">Pá {sideName(s)}</legend>
+                <i className="side-dot" />
+                <span className="mark-name">{s === 'Left' ? 'Esq.' : 'Dir.'}</span>
+                <span className="mark-pair">
+                  {MARKS.filter((m) => m.side === s).map((m) => (
+                    <button
+                      key={m.key}
+                      data-next={(next === m && !outside && !unavailable) || undefined}
+                      disabled={unavailable || outside}
+                      title={`${eventName(m)} neste fotograma (${m.key})`}
+                      onClick={() => add(m.side, m.kind)}
+                    >
+                      {m.kind === 'Catch' ? 'Entrada' : 'Saída'}
+                      <small>{m.key}</small>
+                    </button>
+                  ))}
+                </span>
               </fieldset>
             ))}
             {placed && p.events.some((x) => x.id === placed.id && x.review !== 'skipped') && (
