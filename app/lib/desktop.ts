@@ -15,6 +15,7 @@ declare global {
       recover(): Promise<DesktopProject | null>;
       snapshot(text: string, dirty: boolean): Promise<void>;
       dirty(value: boolean): void;
+      theme(value: 'light' | 'dark'): void;
     };
   }
 }

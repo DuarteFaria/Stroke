@@ -26,6 +26,18 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token, Origin: 'https://unrelated.example' } })).status, 403);
   assert.equal((await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } })).status, 200);
   const checks = ['renderer', 'authenticated analyzer', 'foreign origin rejected'];
+  // Main-process fetch bypasses the document CSP. Exercise the actual renderer
+  // on every CI run, even without a personal project/video fixture.
+  const rendererHealth = await run(`(async () => {
+    const {api,token}=await window.strokeDesktop.config();
+    const response=await fetch(api+'/health',{headers:{'X-Stroke-Token':token}});
+    if (!response.ok) throw Error('Renderer analyzer health: '+response.status);
+    return response.json();
+  })()`);
+  assert.equal(rendererHealth.ok,true);
+  assert.equal(rendererHealth.modelReady,true);
+  await waitFor(`!document.body.innerText.includes('Analisador desligado')`);
+  checks.push('renderer-to-analyzer connection under document CSP');
   if (process.env.STROKE_SMOKE_ANALYSIS_VIDEO) {
     const clip = await fs.readFile(process.env.STROKE_SMOKE_ANALYSIS_VIDEO);
     for (const quality of ['standard', 'detailed']) {
@@ -63,6 +75,21 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await waitFor(`document.querySelector('video')?.readyState >= 2`);
   await capture('studio-overview.png');
   checks.push('native project open', 'native video open and decode');
+  if (process.env.STROKE_SMOKE_3D) {
+    await click('Vista 3D');
+    await waitFor(`document.querySelectorAll('.pose3d circle').length > 0`);
+    assert.equal(await run(`document.querySelector('.pose3d-legend').innerText.includes('Esquerda do atleta')`),true);
+    await click('Rodar 90°');
+    assert.equal(await run(`document.querySelector('input[aria-label="Rotação 3D"]').value`),'90');
+    await click('Repor');
+    await settle();
+    await capture('pose3d-stabilized.png');
+    await run(`document.querySelector('.pose3d-options input').click()`);
+    await waitFor(`document.querySelector('.pose3d > p').innerText.includes('Original')`);
+    await run(`document.querySelector('.pose3d-options input').click()`);
+    checks.push('3D anatomical labels, rotation, reset and original comparison');
+    await click('Editar');
+  }
   if (process.env.STROKE_SMOKE_COMPARISONS) {
     await click('Comparar');
     await waitFor(`document.querySelector('.stroke-comparison')?.innerText.includes('4 pares entrada/saída confirmados · 3 ciclos completos')`);

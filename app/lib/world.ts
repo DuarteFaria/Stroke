@@ -1,12 +1,14 @@
 import type { Frame, WorldPoint } from './motion.ts';
+import { consistentWorld, constrainArms, interpolatedArmLengths, sideSwap, stabilizeArmLengths } from './world-stability.ts';
 
 export const UPPER_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24];
 const median = (values: number[]) => values.toSorted((a,b) => a-b)[Math.floor(values.length / 2)];
 
 /** Symmetric, short-window display filter. Raw frames and missing estimates stay intact. */
 export function stabilizeWorld(frames: Frame[], transitions: [number, number][] = []): Frame[] {
+  frames = consistentWorld(frames, transitions);
   const blocked = (f: Frame) => f.transition || transitions.some(([a,b]) => f.t >= a && f.t <= b);
-  return frames.map((frame, i) => {
+  return stabilizeArmLengths(frames.map((frame, i) => {
     if (blocked(frame)) return {...frame, worldPoints: null};
     if (!frame.worldPoints || !frame.points) return frame;
     const neighbours = [frame];
@@ -30,7 +32,7 @@ export function stabilizeWorld(frames: Frame[], transitions: [number, number][] 
       }
       return {...p, x:x/weight, y:y/weight, z:z/weight};
     })};
-  });
+  }));
 }
 
 /** One fixed camera target and scale per clip; no frame-by-frame auto-zoom. */
@@ -46,7 +48,8 @@ export function worldViewBounds(frames: Frame[]) {
 }
 
 /** No interpolation across missing estimates, cuts, or tracking restarts. */
-export function worldPoseAt(frames: Frame[], t: number): WorldPoint[] | null {
+export function worldPoseAt(frames: Frame[], t: number, transitions: [number,number][] = []): WorldPoint[] | null {
+  if (transitions.some(([a,b])=>t>=a && t<=b)) return null;
   let lo = 0, hi = frames.length;
   while (lo < hi) {
     const m = (lo + hi) >> 1;
@@ -58,14 +61,15 @@ export function worldPoseAt(frames: Frame[], t: number): WorldPoint[] | null {
   if (!a) return b && Math.abs(b.t - t) < .08 ? points(b) : null;
   if (!b) return Math.abs(a.t - t) < .08 ? points(a) : null;
   const pa = points(a), pb = points(b);
-  if (!pa || !pb || b.breakBefore || b.t - a.t > .25) return null;
+  if (transitions.some(([start,end])=>a.t<=end && b.t>=start)) return null;
+  if (!pa || !pb || b.breakBefore || b.t - a.t > .25 || sideSwap(a,b)) return null;
   const f = (t - a.t) / (b.t - a.t);
-  return pa.map((p, i) => ({
+  return constrainArms(pa.map((p, i) => ({
     x: p.x + (pb[i].x - p.x) * f,
     y: p.y + (pb[i].y - p.y) * f,
     z: p.z + (pb[i].z - p.z) * f,
     v: Math.min(p.v, pb[i].v),
-  }));
+  })), interpolatedArmLengths(pa,pb,f));
 }
 
 /** Orthographic camera; input y points down as in MediaPipe. */

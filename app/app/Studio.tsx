@@ -3,6 +3,7 @@ import StrokeReview, { TimingSummary } from './StrokeReview';
 import StrokeComparison from './StrokeComparison';
 import Pose3D from './Pose3D';
 import { useDrawing, DrawingLayer, DrawingToolbar, DrawingMarks } from './Drawing';
+import ThemeToggle from './ThemeToggle';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -1206,6 +1207,7 @@ export default function Studio() {
               </>
             )}
           </button>
+          <ThemeToggle />
         </div>
       </header>
       <input
@@ -1448,7 +1450,6 @@ export default function Studio() {
               <SkipBack size={16} />
             </button>
             <button
-              className="primary"
               aria-label={playing ? 'Pausa' : 'Reproduzir'}
               title="Reproduzir ou pausar (espaço)"
               disabled={!src || busy}

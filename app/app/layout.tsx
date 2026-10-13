@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { themeBootstrap } from './theme';
 import './globals.css';
 export const metadata: Metadata = {
   title: 'Stroke · Estúdio de movimento em caiaque',
@@ -11,7 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-PT">
+    <html lang="pt-PT" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body>{children}</body>
     </html>
   );

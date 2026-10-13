@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme } = require('electron');
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
@@ -9,6 +9,9 @@ const root = path.resolve(__dirname, '..');
 const smoke = process.argv.includes('--smoke-test');
 if (smoke) app.setPath('userData', path.join(app.getPath('temp'), 'stroke-desktop-smoke'));
 let win, server, analyzer, origin, api, dirty = false, quitting = false;
+let analyzerReady;
+const launchedAt = performance.now();
+const milestone = name => log(`Startup ${name}: ${Math.round(performance.now() - launchedAt)} ms`);
 let projectPath = null, videoPath = null;
 let writeQueue = Promise.resolve();
 const token = randomBytes(32).toString('hex');
@@ -16,6 +19,17 @@ const videos = new Map(), pending = new Map();
 const data = () => app.getPath('userData');
 const recoveryPath = () => path.join(data(), 'recovery.json');
 const logPath = () => path.join(data(), 'desktop.log');
+const themePath = () => path.join(data(), 'theme.json');
+// The window background and the splash are painted before the renderer exists,
+// so the shell needs its own copy of the theme. Same values as --page in
+// app/globals.css. With no stored choice we follow the system, exactly as the
+// bootstrap script in the page does.
+const PAGE = { dark: '#131311', light: '#eeebe2' };
+function savedTheme() {
+  try { const value = JSON.parse(fs.readFileSync(themePath(), 'utf8')); if (value === 'light' || value === 'dark') return value; } catch {}
+  return null;
+}
+function storedTheme() { return savedTheme() ?? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'); }
 function log(message) { fs.appendFileSync(logPath(), `${new Date().toISOString()} ${message}\n`); }
 async function atomic(file, text) {
   const temp = `${file}.${randomUUID()}.tmp`;
@@ -50,7 +64,7 @@ function handle(name, fn) {
   });
 }
 function installIPC() {
-  handle('config', () => ({ api, token, version: app.getVersion() }));
+  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion() }; });
   handle('openProject', async () => {
     const result = await dialog.showOpenDialog(win, { title: 'Abrir projeto', filters: [{ name: 'Projeto Stroke', extensions: ['json'] }], properties: ['openFile'] });
     if (result.canceled) return null;
@@ -111,6 +125,11 @@ function installIPC() {
     return { id, text: projectText(previous.text) };
   });
   ipcMain.on('stroke:dirty', (event, value) => { if (senderOK(event)) dirty = !!value; });
+  ipcMain.on('stroke:theme', (event, value) => {
+    if (!senderOK(event) || (value !== 'light' && value !== 'dark')) return;
+    win.setBackgroundColor(PAGE[value]);
+    writeQueue = writeQueue.catch(() => {}).then(() => atomic(themePath(), JSON.stringify(value)));
+  });
 }
 async function startServer() {
   const ui = app.isPackaged ? path.join(process.resourcesPath, 'ui') : path.join(root, 'app', 'desktop-dist');
@@ -118,6 +137,23 @@ async function startServer() {
     try {
       if (req.headers.host !== new URL(origin).host || !['GET', 'HEAD'].includes(req.method)) { res.writeHead(403).end(); return; }
       const pathname = decodeURIComponent(new URL(req.url, origin).pathname);
+      const send = (mime, length) => {
+        res.setHeader('Content-Type', mime); res.setHeader('Content-Length', length);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ${api || ''}; object-src 'none'; frame-src 'none'; base-uri 'none'`);
+      };
+      if (pathname === '/theme.js') {
+        // The listening port is new on every launch, so the page origin — and
+        // with it localStorage — is too, and the page cannot remember the theme
+        // by itself. Seed the choice from the shell's durable copy, then hand
+        // over the same bootstrap the browser build uses.
+        const saved = savedTheme();
+        const seed = saved ? `try{localStorage.setItem('stroke:theme',${JSON.stringify(saved)})}catch(e){}\n` : '';
+        const body = seed + await fsp.readFile(path.join(ui, 'theme.js'), 'utf8');
+        send('text/javascript', Buffer.byteLength(body));
+        if (req.method === 'HEAD') res.end(); else res.end(body);
+        return;
+      }
       const isVideo = pathname.startsWith('/video/');
       if (isVideo && req.headers['x-stroke-token'] !== token) { res.writeHead(401).end(); return; }
       const file = isVideo ? videos.get(pathname.slice(7)) : path.resolve(ui, `.${pathname === '/' ? '/index.html' : pathname}`);
@@ -125,9 +161,7 @@ async function startServer() {
       const stat = await fsp.stat(file);
       if (!stat.isFile()) { res.writeHead(404).end(); return; }
       const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png' }[path.extname(file)] || 'application/octet-stream';
-      res.setHeader('Content-Type', mime); res.setHeader('Content-Length', stat.size);
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ${api || ''}; object-src 'none'; frame-src 'none'; base-uri 'none'`);
+      send(mime, stat.size);
       if (req.method === 'HEAD') res.end(); else fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
     } catch { res.writeHead(404).end(); }
   });
@@ -142,7 +176,10 @@ async function startAnalyzer() {
   const temp = path.join(data(), 'analysis-temp'); await fsp.mkdir(temp, { recursive: true });
   // This directory is exclusively owned by this single-instance app.
   for (const file of await fsp.readdir(temp)) if (/^tmp.*\.mp4$/.test(file)) await fsp.rm(path.join(temp, file), { force: true });
-  analyzer = spawn(command, args, { cwd: app.isPackaged ? process.resourcesPath : root, windowsHide: true, env: { ...process.env, STROKE_TOKEN: token, STROKE_ORIGIN: origin, TEMP: temp, TMP: temp, TMPDIR: temp }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const cache = path.join(data(), 'cache', 'matplotlib');
+  await fsp.mkdir(cache, { recursive: true });
+  milestone('analyzer-spawn');
+  analyzer = spawn(command, args, { cwd: app.isPackaged ? process.resourcesPath : root, windowsHide: true, env: { ...process.env, STROKE_TOKEN: token, STROKE_ORIGIN: origin, STROKE_MPL_CACHE: cache, TEMP: temp, TMP: temp, TMPDIR: temp }, stdio: ['pipe', 'pipe', 'pipe'] });
   analyzer.stderr.on('data', chunk => log(chunk.toString()));
   analyzer.on('exit', (code) => {
     log(`Analyzer exited (${code})`);
@@ -154,6 +191,7 @@ async function startAnalyzer() {
     analyzer.once('error', err => { clearTimeout(timer); reject(err); });
     analyzer.once('exit', code => { clearTimeout(timer); reject(Error(`O analisador terminou (${code}).`)); });
     analyzer.stdout.on('data', chunk => {
+      log(chunk.toString().trim());
       buffer += chunk.toString();
       const match = buffer.match(/STROKE_READY=(\{[^\n]+\})/);
       if (match) { api = `http://127.0.0.1:${JSON.parse(match[1]).port}`; clearTimeout(timer); resolve(); }
@@ -161,6 +199,7 @@ async function startAnalyzer() {
   });
   const response = await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } });
   if (!response.ok || !(await response.json()).modelReady) throw Error('O modelo de análise não está disponível.');
+  milestone('analyzer-ready');
 }
 async function stop() {
   quitting = true;
@@ -182,7 +221,8 @@ else {
     if (smoke) await fsp.rm(recoveryPath(), { force: true });
     if (fs.existsSync(logPath()) && fs.statSync(logPath()).size > 2 * 1024 ** 2) await fsp.rename(logPath(), logPath() + '.previous').catch(() => {});
     log(`Stroke ${app.getVersion()} ${process.platform} ${process.arch}`);
-    win = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 650, backgroundColor: '#131311', title: `Stroke ${app.getVersion()}`, icon: path.join(__dirname, 'icon.png'), show: !smoke, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false } });
+    const theme = storedTheme();
+    win = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 650, backgroundColor: PAGE[theme], title: `Stroke ${app.getVersion()}`, icon: path.join(__dirname, 'icon.png'), show: !smoke, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (event, url) => { if (url !== origin + '/') event.preventDefault(); });
     win.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
@@ -198,9 +238,16 @@ else {
       { label: 'Ver', submenu: [{ role: 'resetZoom', label: 'Tamanho original' }, { role: 'zoomIn', label: 'Ampliar' }, { role: 'zoomOut', label: 'Reduzir' }, { role: 'togglefullscreen', label: 'Ecrã inteiro' }] },
       { label: 'Ajuda', submenu: [{ label: 'Exportar diagnóstico…', click: async () => { const result = await dialog.showSaveDialog(win, { defaultPath: `Stroke-${app.getVersion()}-diagnostico.txt` }); if (!result.canceled) await fsp.copyFile(logPath(), result.filePath).catch(err => dialog.showErrorBox('Stroke', err.message)); } }] },
     ]));
-    await win.loadFile(path.join(__dirname, 'loading.html'));
+    await win.loadFile(path.join(__dirname, 'loading.html'), { query: { theme } });
     try {
-      await startServer(); await startAnalyzer(); installIPC(); await win.loadURL(origin);
+      await startServer();
+      analyzerReady = startAnalyzer();
+      // The document CSP must include the analyzer's assigned origin when it
+      // is served. Loading it earlier permanently blocks renderer API calls.
+      await analyzerReady;
+      installIPC();
+      await win.loadURL(origin);
+      milestone('editor-loaded');
       if (smoke) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         const result = await win.webContents.executeJavaScript(`({ title: document.title, text: document.body.innerText, bridge: !!window.strokeDesktop })`);

@@ -1,11 +1,24 @@
 """Packaged analyzer entry point; dynamic loopback port and parent lifetime."""
 import json
+import os
+from pathlib import Path
 import socket
 import sys
 import threading
 import time
+
+# PyInstaller's matplotlib runtime hook replaces MPLCONFIGDIR with a new
+# temporary directory on every launch. Restore our persistent cache AFTER
+# runtime hooks, but BEFORE MediaPipe imports matplotlib via its utilities.
+cache = os.environ.get('STROKE_MPL_CACHE')
+if cache:
+    Path(cache).mkdir(parents=True, exist_ok=True)
+    os.environ['MPLCONFIGDIR'] = cache
+
+started = time.monotonic()
 import uvicorn
 from backend.main import app, JOBS
+print(f'STROKE_IMPORT_SECONDS={time.monotonic() - started:.3f}', flush=True)
 
 
 def main():
