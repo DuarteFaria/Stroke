@@ -1503,6 +1503,36 @@ textarea {
 .lane-side .lane-label::before {
   background: var(--side);
 }
+/* The other lanes show a small copy of the mark they carry. */
+.lane-edits .lane-label::before {
+  width: 6px;
+  height: 6px;
+  margin: 0 1px;
+  border-radius: 1px;
+  background: var(--muted);
+  transform: rotate(45deg);
+}
+.lane-flags .lane-label::before {
+  width: 4px;
+  height: 10px;
+  margin: 0 2px;
+  border-radius: 1px;
+  background: var(--warn);
+}
+.lane-transitions .lane-label::before {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--muted);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 2px,
+    color-mix(in srgb, var(--muted) 60%, transparent) 2px 3px
+  );
+}
+.lane-sketches .lane-label::before {
+  background: var(--text);
+}
 .water {
   top: 12px;
   height: 4px;

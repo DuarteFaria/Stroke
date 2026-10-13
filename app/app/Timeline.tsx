@@ -612,7 +612,7 @@ export default function Timeline({
             );
           })}
         {editKeys.length > 0 && (
-          <Lane name="Edições" note={<small>{editKeys.length}</small>} track={track}>
+          <Lane name="Edições" className="lane-edits" note={<small>{editKeys.length}</small>} track={track}>
             {editKeys.filter((k) => seen(k.t)).map((k) => (
               <button
                 key={`${k.mode}-${k.t}`}
@@ -627,7 +627,7 @@ export default function Timeline({
           </Lane>
         )}
         {flagGroups.length > 0 && (
-          <Lane name="Avisos" note={<small>{flags.length}</small>} track={track}>
+          <Lane name="Avisos" className="lane-flags" note={<small>{flags.length}</small>} track={track}>
             {flagGroups.filter((g) => seen(g.t)).map((g) => {
               const what = g.list
                 .map(
@@ -650,7 +650,7 @@ export default function Timeline({
           </Lane>
         )}
         {(transitions.length > 0 || transitionStart !== null) && (
-          <Lane name="Transições" note={<small>{transitions.length || ''}</small>} track={track}>
+          <Lane name="Transições" className="lane-transitions" note={<small>{transitions.length || ''}</small>} track={track}>
             {transitions.map(([a, b], i) => !spans(a, b) ? null : (
               <button
                 key={`${a}-${b}`}
@@ -679,7 +679,7 @@ export default function Timeline({
           </Lane>
         )}
         {drawingTimes.length > 0 && (
-          <Lane name="Desenhos" note={<small>{drawingTimes.length}</small>} track={track}>
+          <Lane name="Desenhos" className="lane-sketches" note={<small>{drawingTimes.length}</small>} track={track}>
             {drawingTimes.filter(seen).map((t) => (
               <button
                 key={t}
