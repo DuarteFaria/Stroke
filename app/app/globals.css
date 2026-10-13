@@ -2,30 +2,12 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* Stroke review stays attached to the timeline; body tools remain visible. */
-.stroke-inline { padding: 4px 0 8px; }
-.stroke-lanes { position: relative; height: 52px; margin: 0 7px 5px; border-bottom: 1px solid var(--line-soft); }
-.stroke-lanes::before { content: ''; position: absolute; inset: 25px 0 auto; border-top: 1px solid var(--line-soft); }
-.stroke-marker { position: absolute; transform: translateX(-50%); min-width: 26px; width: 26px; height: 24px; min-height: 24px; padding: 0; border-radius: 3px; font-size: 11px; border: 1px dashed var(--muted); z-index: 1; }
-.stroke-marker.marker-entry { top: 0; }
-.stroke-marker.marker-exit { top: 27px; }
-.stroke-marker[data-reviewed='true'] { border-style: solid; color: var(--green); }
-.stroke-marker[aria-pressed='true'] { outline: 2px solid var(--foreground); outline-offset: 1px; z-index: 2; }
-.stroke-toolbar, .marker-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.marker-legend { font-family: inherit; color: var(--muted); }
-.stroke-toolbar-space { flex: 1; }
-.stroke-inline button, .stroke-inline select { font-size: 12px; }
-.stroke-inline select { background: var(--control); color: var(--text); border: 1px solid var(--control-line); border-radius: 6px; padding: 7px; min-height: 32px; }
-.marker-edit { border-top: 1px solid var(--line-soft); margin-top: 8px; padding-top: 8px; }
-.marker-caption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-right: auto; font-size: 12px; }
-.marker-caption strong { font-weight: 500; }
-.marker-caption small, .marker-caption time { color: var(--muted); }
-.timing-summary { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
-.timing-summary p { font-size: 12px; color: var(--muted); margin: 6px 0; }
-.timing-summary dl { display: flex; flex-wrap: wrap; gap: 28px; margin: 12px 0; }
+
+/* Timing summary, shown in the inspector. */
+.timing-summary p { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+.timing-summary dl { display: flex; flex-direction: column; gap: 18px; margin: 18px 0 0; }
 .timing-summary dt { font-size: 12px; color: var(--muted); }
 .timing-summary dd { font-size: 22px; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
-.stroke-inline button:focus-visible, .stroke-inline select:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
 
 /* ----------------------------------------------------------------- palette
    The chrome is warm neutral on purpose. Saturated colour is reserved for the
@@ -312,19 +294,6 @@ kbd {
 }
 
 /* ----------------------------------------------------------------- shell */
-.studio {
-  max-width: 1840px;
-  margin: auto;
-  padding: 0 26px 26px;
-}
-header {
-  height: 66px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  border-bottom: 1px solid var(--line-soft);
-}
 .header-actions {
   display: flex;
   align-items: center;
@@ -400,60 +369,6 @@ h3 {
   margin: 0;
 }
 
-/* -------------------------------------------------------------- video bar */
-/* Which video is loaded, and the one way to change it. Only shown once there
-   is a video — the empty stage already asks for the first one. */
-.videobar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  margin: 12px 0;
-  font-size: 13px;
-}
-.videobar small {
-  flex: none;
-  color: var(--faint);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-.videobar button {
-  margin-left: auto;
-  flex: none;
-  padding: 6px 11px;
-  font-size: 12.5px;
-}
-.filename[data-empty] {
-  color: var(--faint);
-  font-weight: 500;
-}
-.filename {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* -------------------------------------------------------------- workspace */
-.workspace {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) 300px;
-  gap: 16px;
-  align-items: start;
-}
-.viewer,
-aside {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-  overflow: hidden;
-}
-aside {
-  padding: 16px;
-}
-
 /* ------------------------------------------------------------ video stage */
 /* The stage is a dark island in both themes. Everything inside it — the HUD,
    the veil, the notes, the empty-state button — sits on footage rather than on
@@ -475,6 +390,17 @@ aside {
   --primary-lift: none;
   --on-primary: #17160f;
   --warn: #ff7a5c;
+  --solid: #f0eee7;
+  --on-solid: #17160f;
+  --muted-fill: #2b2a23;
+  --menu: #232219;
+  --menu-line: #302e29;
+  --shadow: #00000080;
+  --shadow-lg: #000000a6;
+  --warn-soft: #291c17;
+  --green: #4ee08a;
+  --orange: #ff9d4d;
+  --paddle: #ffd84d;
   color-scheme: dark;
   color: var(--text);
   background: var(--sunk);
@@ -482,10 +408,17 @@ aside {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  container-type: size;
 }
+/* Fitted to whichever runs out first, the width or the height of the stage. */
 .video-wrap {
   position: relative;
-  width: 100%;
+  flex: none;
+  width: min(100cqw, calc(100cqh * var(--ar)));
 }
 .stage video {
   display: block;
@@ -550,10 +483,8 @@ aside {
 }
 .stage-note,
 .place-hint {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  pointer-events: auto;
+  align-self: flex-start;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -562,8 +493,9 @@ aside {
   padding: 6px 11px;
   border-radius: 7px;
   font-size: 12.5px;
-  max-width: calc(100% - 20px);
+  max-width: 100%;
   white-space: nowrap;
+  box-shadow: 0 8px 22px var(--shadow);
 }
 .stage-note > svg {
   flex: none;
@@ -578,7 +510,7 @@ aside {
   border-color: var(--text);
 }
 .empty {
-  min-height: 300px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -596,645 +528,17 @@ aside {
   margin: 0 0 18px;
 }
 
-/* --------------------------------------------------------------- timeline */
-.timeline {
-  padding: 14px 16px 0;
-}
-.scrub {
-  position: relative;
-  height: 38px;
-  touch-action: none;
-}
-.track {
-  position: absolute;
-  inset: 3px 0;
-  border-radius: 6px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  overflow: hidden;
-  pointer-events: none;
-}
-/* Percentage marks sit in a box inset by half a thumb, so they line up with
-   the native range thumbs stacked on top. */
-.track-inner {
-  position: absolute;
-  inset: 0 7px;
-}
-.band {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: var(--band);
-  min-width: 2px;
-}
-.window {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: var(--window-fill);
-  border-left: 2px solid var(--grip);
-  border-right: 2px solid var(--grip);
-}
-/* Catch hangs from the bottom, exit from the top: legible without colour. */
-.tick {
-  position: absolute;
-  width: 2px;
-  height: 10px;
-  margin-left: -1px;
-}
-.tick.catch {
-  bottom: 0;
-  background: var(--green);
-}
-.tick.exit {
-  top: 0;
-  background: var(--orange);
-}
-/* Three native range inputs stacked over the drawn track: the playhead, and
-   one handle for each end of the part to analyse. */
-.range {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 38px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  -webkit-appearance: none;
-  appearance: none;
-}
-.range:disabled {
-  opacity: 0.55;
-}
-.range::-webkit-slider-runnable-track {
-  height: 38px;
-  background: transparent;
-}
-.range::-moz-range-track {
-  height: 38px;
-  background: transparent;
-}
-.range-time {
-  cursor: pointer;
-}
-.range-time::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 38px;
-  border: 0;
-  border-radius: 0;
-  background: linear-gradient(var(--playhead), var(--playhead)) center / 3px 100% no-repeat;
-  cursor: ew-resize;
-}
-.range-time::-moz-range-thumb {
-  width: 14px;
-  height: 38px;
-  border: 0;
-  border-radius: 0;
-  background: linear-gradient(var(--playhead), var(--playhead)) center / 3px 100% no-repeat;
-  cursor: ew-resize;
-}
-/* Only the handles take the pointer, so a click anywhere else on the bar
-   still reaches the playhead underneath and scrubs. */
-.range-seg {
-  pointer-events: none;
-}
-.range-seg::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  pointer-events: auto;
-  width: 14px;
-  height: 32px;
-  border-radius: 4px;
-  border: 1px solid var(--grip-line);
-  background: var(--grip);
-  cursor: ew-resize;
-}
-.range-seg::-moz-range-thumb {
-  pointer-events: auto;
-  width: 12px;
-  height: 30px;
-  border-radius: 4px;
-  border: 1px solid var(--grip-line);
-  background: var(--grip);
-  cursor: ew-resize;
-}
-.range-seg:disabled::-webkit-slider-thumb {
-  background: var(--grip-off);
-  border-color: var(--grip-off-line);
-  cursor: default;
-}
-.range-seg:focus-visible::-webkit-slider-thumb {
-  box-shadow:
-    0 0 0 2px var(--panel),
-    0 0 0 4px var(--text);
-}
-.timeline-labels {
-  display: flex;
-  justify-content: space-between;
-  color: var(--faint);
-  font:
-    11.5px Consolas,
-    monospace;
-  margin-top: 7px;
-}
-
-/* -------------------------------------------------------------- transport */
-.transport {
-  padding: 10px 16px 12px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
-}
-.transport [data-slot='select-trigger'] {
-  min-width: 68px;
-}
-.layers {
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-  margin-left: auto;
-}
-.shortcuts {
-  position: relative;
-  font-size: 12px;
-}
-.shortcuts > summary {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--muted);
-  list-style: none;
-  padding: 6px;
-  border: 1px solid var(--control-line);
-  border-radius: 7px;
-}
-.shortcuts > summary::-webkit-details-marker {
-  display: none;
-}
-.shortcuts[open] > summary {
-  color: var(--text);
-  background: var(--control-hover);
-}
-.shortcuts ul {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 6px);
-  z-index: 5;
-  list-style: none;
-  margin: 0;
-  padding: 11px 13px;
-  min-width: 190px;
-  display: grid;
-  gap: 7px;
-  background: var(--menu);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: 0 10px 26px var(--shadow);
-  color: var(--muted);
-}
-
-/* ---------------------------------------------------- analyse / progress */
-.analyse {
-  padding: 11px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--line);
-}
-.segment-fields {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  flex-wrap: wrap;
-  font-size: 12.5px;
-}
-.segment-fields input {
-  width: 72px;
-  padding: 6px 7px;
-  font-size: 13px;
-}
-.segment-fields button {
-  font-size: 12px;
-  padding: 6px 9px;
-}
-.segment-fields .dash {
-  color: var(--faint);
-}
-.analyse-action {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.analyse-action button {
-  white-space: nowrap;
-}
-.analyse-action button[aria-pressed='true'] {
-  border-color: var(--paddle);
-}
-.analyse-action small {
-  font-size: 11.5px;
-  max-width: 30ch;
-  text-align: right;
-}
-.job-progress {
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--line);
-}
-.job-progress > div:last-child {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  font-size: 12.5px;
-  color: var(--muted);
-  margin-top: 8px;
-}
-
-/* ------------------------------------------------------------- angle strip */
-.angles {
-  display: flex;
-  align-items: stretch;
-  flex-wrap: wrap;
-}
-.metric {
-  flex: 1 1 130px;
-  min-width: 0;
-  padding: 9px 14px;
-  border-right: 1px solid var(--line);
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.metric > span {
-  font-size: 11.5px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.metric strong {
-  margin-left: auto;
-  font-size: 17px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.metric small {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.angles-note {
-  flex: none;
-  margin: 0;
-  padding: 9px 14px;
-  font-size: 11px;
-  color: var(--faint);
-  align-self: center;
-}
-
-/* ------------------------------------------------------- editing sidebar */
-.modes {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.modes > div:first-of-type {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  padding: 3px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-}
-.mode {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 4px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-  user-select: none;
-}
-.mode input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.mode:hover {
-  background: var(--control);
-  color: var(--text);
-}
-.mode[data-active] {
-  background: var(--control-hover);
-  color: var(--text);
-  font-weight: 600;
-  box-shadow: inset 0 0 0 1px var(--control-line);
-}
-.mode:has(input:focus-visible) {
-  outline: 2px solid var(--text);
-  outline-offset: 2px;
-}
-.undo {
-  display: flex;
-  gap: 3px;
-  flex: none;
-}
-.undo button {
-  padding: 7px;
-  border: 0;
-}
-.help {
-  font-size: 12.5px;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 14px 0 12px;
-}
-.field-label {
-  display: block;
-  font-size: 12.5px;
-  margin: 16px 0 6px;
-  color: var(--muted);
-}
-aside [data-slot='select-trigger'] {
-  width: 100%;
-}
-.picked {
-  font-size: 12.5px;
-  color: var(--muted);
-  margin: 10px 0 0;
-}
-.picked b {
-  color: var(--text);
-  font-weight: 600;
-}
-.paddle-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
-.paddle-buttons button {
-  font-size: 12.5px;
-  padding: 8px 6px;
-}
-.active {
-  border-color: var(--text) !important;
-  color: var(--text);
-}
-.target-intro {
-  margin-top: 14px;
-  padding: 14px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  text-align: center;
-}
-.target-intro p {
-  font-size: 12.5px;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 12px;
-}
-.events {
-  margin-top: 20px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-  display: grid;
-  gap: 8px;
-}
-.row {
-  display: flex;
-  gap: 7px;
-}
-.row button {
-  flex: 1;
-  padding: 8px;
-  font-size: 13px;
-}
-.event-list {
-  max-height: 150px;
-  overflow: auto;
-}
-.event {
-  display: flex;
-  gap: 3px;
-  margin-top: 4px;
-}
-.event > button:first-child {
-  flex: 1;
-  justify-content: flex-start;
-  background: var(--panel-2);
-  border: 0;
-  font-size: 12px;
-}
-.event > button:last-child {
-  padding: 5px;
-  border: 0;
-}
-.event time {
-  margin-left: auto;
-  font:
-    11px Consolas,
-    monospace;
-  color: var(--muted);
-}
-.event i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: none;
-}
-.catch {
-  background: var(--green);
-}
-.exit {
-  background: var(--orange);
-}
-.keyframes {
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-.key-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  max-height: 84px;
-  overflow: auto;
-  margin-top: 8px;
-}
-.key-list button {
-  font:
-    11px Consolas,
-    monospace;
-  padding: 4px 5px;
-}
-
-/* ------------------------------------------ collapsible sidebar sections
-   Rever movimento e Transições dobram-se; o cabeçalho lê-se como os outros. */
-.panel-section {
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-.panel-section > summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  list-style: none;
-  color: var(--text);
-}
-.panel-section > summary::-webkit-details-marker {
-  display: none;
-}
-.panel-section > summary .chev {
-  flex: none;
-  color: var(--muted);
-  transition: transform 0.15s ease;
-}
-.panel-section[open] > summary .chev {
-  transform: rotate(90deg);
-}
-.panel-section > summary .count {
-  margin-left: auto;
-  font:
-    11px Consolas,
-    monospace;
-  color: var(--muted);
-  background: var(--panel-2);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-.panel-section .hint {
-  font-size: 12px;
-  color: var(--faint);
-  line-height: 1.55;
-  margin: 10px 0;
-}
-.panel-section .empty {
-  font-size: 12.5px;
-  color: var(--muted);
-  margin: 0;
-}
-.flag-list {
-  display: grid;
-  gap: 4px;
-  max-height: 156px;
-  overflow: auto;
-}
-.flag {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  justify-content: flex-start;
-  padding: 6px 8px;
-  background: var(--panel-2);
-  border: 0;
-  font-size: 12px;
-}
-.flag time {
-  flex: none;
-  font:
-    11px Consolas,
-    monospace;
-  color: var(--muted);
-}
-.flag span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.flag em {
-  margin-left: auto;
-  flex: none;
-  font-style: normal;
-  font-size: 11px;
-  color: var(--orange);
-}
-.cancel {
-  flex: none !important;
-  font-size: 12.5px;
-}
-.range-list {
-  display: grid;
-  gap: 4px;
-  max-height: 120px;
-  overflow: auto;
-  margin-top: 8px;
-}
-.range {
-  display: flex;
-  gap: 3px;
-}
-.range > button:first-child {
-  flex: 1;
-  justify-content: flex-start;
-  padding: 6px 8px;
-  background: var(--panel-2);
-  border: 0;
-}
-.range > button:last-child {
-  padding: 5px;
-  border: 0;
-}
-.range time {
-  font:
-    11px Consolas,
-    monospace;
-  color: var(--muted);
-}
-.notes {
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 6px;
-}
-textarea {
-  width: 100%;
-  height: 74px;
-  resize: vertical;
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-.service {
-  font-size: 11px;
-  color: var(--faint);
-  line-height: 1.6;
-  margin: 14px 0 0;
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-}
-
 /* ------------------------------------------------------------------ toasts
    A confirmation clears itself; a problem waits to be read and dismissed. */
 .toasts {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: min(400px, calc(100vw - 32px));
+  width: min(400px, 100%);
   pointer-events: none;
+}
+.toasts:empty {
+  display: none;
 }
 .toast {
   pointer-events: auto;
@@ -1346,166 +650,31 @@ textarea {
   background: var(--danger-soft);
 }
 
-/* -------------------------------------------------- desktop: fill the screen
-   On a real desktop nothing should need scrolling during the working loop:
-   the video takes whatever height is left, the tools scroll on their own. */
-@media (min-width: 1200px) and (min-height: 760px) {
-  .studio {
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-  }
-  .workspace {
-    flex: 1;
-    min-height: 0;
-  }
-  .viewer {
-    height: 100%;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  .viewer > *:not(.stage) {
-    flex: none;
-  }
-  .stage {
-    flex: 1;
-    min-height: 180px;
-    container-type: size;
-  }
-  .video-wrap {
-    flex: none;
-    width: min(100cqw, calc(100cqh * var(--ar)));
-  }
-  .empty {
-    min-height: 0;
-  }
-  aside {
-    height: 100%;
-    overflow-y: auto;
-  }
-}
-@media (min-width: 1500px) {
-  .workspace {
-    grid-template-columns: 76px minmax(0, 1fr) 320px;
-  }
-}
-
-/* -------------------------------------------------------------- responsive */
-@media (max-width: 1100px) {
-  .video-wrap {
-    width: min(100%, calc(40dvh * var(--ar)));
-  }
-  .workspace-nav { flex-direction: row; justify-content: center; }
-  .workspace-nav button { flex: 0 1 100px; }
-  .workspace {
-    grid-template-columns: 1fr;
-  }
-  .studio {
-    padding: 0 14px 20px;
-  }
-}
-@media (max-width: 700px) {
-  .studio {
-    padding-inline: 12px;
-  }
-  header {
-    height: auto;
-    padding: 12px 0;
-    flex-wrap: wrap;
-  }
-  .header-actions {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .header-actions button {
-    font-size: 12px;
-    padding: 8px;
-  }
-  .chip {
-    width: 100%;
-    order: 3;
-    margin: 0;
-  }
-  .videobar small {
-    display: none;
-  }
-  .layers {
-    margin-left: 0;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .analyse {
-    align-items: stretch;
-  }
-  .analyse-action {
-    justify-content: space-between;
-  }
-  .analyse-action small {
-    text-align: left;
-  }
-  .hud-mode {
-    display: none;
-  }
-  .toasts {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    width: auto;
-  }
-}
-
-.workspace-nav { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
-.workspace-nav button { display: flex; flex-direction: column; justify-content: center; gap: 7px; width: 100%; min-height: 66px; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 12px; padding: 10px 4px; }
-.workspace-nav button:hover { background: var(--control); color: var(--text); }
-.workspace-nav button[aria-pressed='true'] { background: var(--control); border-color: var(--control-line); color: var(--text); }
-.analysis-settings { display: grid; gap: 14px; }
-.analysis-settings h2, .timing-summary h2 { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
-.analysis-settings p { font-size: 13px; line-height: 1.6; color: var(--muted); margin: 0; }
-.analysis-settings h3 { font-size: 13px; font-weight: 600; border-top: 1px solid var(--line); padding-top: 18px; margin: 4px 0 0; }
-.analysis-settings button { justify-content: center; min-height: 38px; }
-aside .timing-summary { margin: 0; padding: 0; border: 0; }
-aside .timing-summary dl { flex-direction: column; gap: 24px; margin: 24px 0; }
-.analyse { justify-content: space-between; column-gap: 32px; }
-.analyse > .analyse-action { margin-left: auto; }
-@media (max-width: 1100px) {
-  .workspace-nav { flex-direction: row; justify-content: center; padding: 0; }
-  .workspace-nav button { flex: 0 1 100px; min-height: 52px; flex-direction: row; }
-}
-
-.analyse-action { justify-content: center; }
-.analyse-action > .toggle { min-height: 38px; padding: 0 8px; margin: 0; }
-
-.stroke-comparison { margin-top: 20px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.stroke-comparison { margin: 0; padding: 0; }
 .stroke-comparison h2 { font-size: 20px; margin: 0; }
 .stroke-comparison h3 { font-size: 15px; margin: 0; }
 .stroke-comparison p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }
 .comparison-heading, .comparison-tabs, .comparison-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .comparison-heading { justify-content: space-between; align-items: flex-start; }
 .comparison-tabs { border: 0; padding: 0; margin: 0; min-width: 0; }
-.comparison-tabs button[aria-pressed='true'] { border-color: var(--green); color: var(--green); background: var(--sunk); }
+.comparison-tabs button[aria-pressed='true'] { border-color: var(--text); color: var(--text); background: var(--control-hover); font-weight: 600; }
 .stroke-comparison button, .stroke-comparison select { font-size: 12px; }
 .stroke-comparison select { display: block; width: 100%; min-height: 36px; margin-top: 6px; padding: 6px; background: var(--control); border: 1px solid var(--control-line); border-radius: 6px; color: var(--text); }
 .stroke-comparison label { font-size: 12px; }
 .comparison-filter { display: block; max-width: 210px; margin: 12px 0; }
-.comparison-pickers { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin: 14px 0; }
+.comparison-pickers { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 12px 0; }
 .comparison-actions { margin-top: 8px; }
 .comparison-table-wrap { overflow-x: auto; }
 .comparison-table { width: 100%; font-size: 13px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .comparison-table caption { text-align: left; color: var(--muted); font-size: 12px; padding: 10px 0; }
-.comparison-table th, .comparison-table td { text-align: right; padding: 12px 8px; border-bottom: 1px solid var(--line); }
+.comparison-table th, .comparison-table td { text-align: right; padding: 9px 6px; border-bottom: 1px solid var(--line); }
 .comparison-table th:first-child { text-align: left; }
 .comparison-table thead th { font-weight: 500; color: var(--muted); }
 .comparison-table small { display: block; font-size: 10px; color: var(--muted); margin-top: 4px; }
-.comparison-empty { padding: 20px; background: var(--sunk); border-radius: 6px; }
+.comparison-empty { padding: 14px; background: var(--sunk); border-radius: 6px; }
 @media (max-width: 600px) { .stroke-comparison { padding: 12px; } .comparison-pickers { grid-template-columns: 1fr; } }
 
-/* Experimental 3D view shares the video timeline. */
 .pose3d { display: grid; gap: 12px; }
-.pose3d header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.pose3d h2 { font-size: 18px; margin: 0; }
-.pose3d header span { color: var(--paddle); font-size: 10px; border: 1px solid color-mix(in srgb, var(--paddle) 40%, transparent); border-radius: 20px; padding: 3px 7px; }
 .pose3d p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .pose3d-presets { display: flex; gap: 6px; }
 .pose3d-presets button { flex: 1; justify-content: center; min-width: 0; padding: 7px; }
@@ -1522,7 +691,1029 @@ aside .timing-summary dl { flex-direction: column; gap: 24px; margin: 24px 0; }
 .pose3d .pose3d-options input { width: auto; }
 .pose3d-presets { flex-wrap: wrap; }
 .pose3d-presets button { flex: 1 1 40%; }
-@media (min-width: 1101px) {
-  .workspace.workspace-3d { grid-template-columns: 76px minmax(0, 1fr) minmax(340px, 32%); }
+.pose3d > svg { height: clamp(220px, 34dvh, 360px); }
+
+/* =========================================================== editor layout
+   Time against tools. The video takes every pixel the chrome does not need:
+   a slim bar on top, the tool rail on the left, an inspector on the right
+   that only opens when the chosen tool has something to set, and the
+   timeline dock along the bottom with one shared time axis. */
+.studio {
+  height: 100dvh;
+  min-height: 560px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 0 10px 10px;
 }
-.pose3d > svg { height: clamp(280px, 36vh, 380px); }
+.studio:not([data-video]) {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+/* ------------------------------------------------------------------ top bar */
+.topbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.topbar .file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.topbar .file small {
+  flex: none;
+  color: var(--faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.topbar button {
+  padding: 6px 11px;
+  font-size: 12.5px;
+}
+.topbar .file button {
+  flex: none;
+}
+.filename {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filename[data-empty] {
+  color: var(--faint);
+  font-weight: 500;
+}
+.header-actions {
+  flex: none;
+}
+.history {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 4px;
+}
+.history button,
+.topbar .theme-toggle {
+  padding: 7px;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.history button:hover:not(:disabled) {
+  background: var(--control);
+  border-color: var(--control-line);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------- workspace */
+.workspace {
+  --rail: 70px;
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+.workspace[data-inspector] {
+  grid-template-columns: var(--rail) minmax(0, 1fr) 280px;
+}
+.workspace[data-inspector='compare'],
+.workspace[data-inspector='3d'] {
+  grid-template-columns: var(--rail) minmax(0, 1fr) 340px;
+}
+
+/* --------------------------------------------------------------- tool rail */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.rail-btn {
+  position: relative;
+  flex: none;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  min-height: 54px;
+  padding: 7px 2px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.rail-btn:hover:not(:disabled) {
+  background: var(--control);
+  color: var(--text);
+}
+.rail-btn[aria-pressed='true'] {
+  background: var(--control-hover);
+  border-color: var(--control-line);
+  color: var(--text);
+  font-weight: 600;
+}
+/* A plain dot, not a colour: this video still needs its first analysis. */
+.rail-btn[data-attention]::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text);
+}
+.rail-sep {
+  flex: none;
+  height: 1px;
+  margin: 5px 10px;
+  background: var(--line);
+}
+
+/* ------------------------------------------------------------------- stage */
+.stage-msgs {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+.stage-veil [data-slot='progress'] {
+  width: min(240px, 60%);
+}
+.stage-veil button {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+/* Angles read off the frame itself, each with its limb's dot. */
+.angle-chips {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  margin: 0;
+  display: grid;
+  gap: 3px;
+  pointer-events: none;
+}
+.angle-chips > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 138px;
+  padding: 3px 8px;
+  border: 1px solid #3a382f;
+  border-radius: 5px;
+  background: #0b0b09d1;
+  font-size: 11.5px;
+}
+.angle-chips dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.angle-chips dt i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.angle-chips dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.angle-chips small {
+  margin-left: 6px;
+  font-weight: 500;
+}
+/* Reserved for the drawing palette: floats top-centre on the footage, clear
+   of the clock (top-left), the angles (top-right) and messages (bottom-left). */
+.stage-palette {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+/* --------------------------------------------------------------- inspector */
+.inspector {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.inspector-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.inspector-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.inspector-close {
+  padding: 6px;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.badge {
+  color: var(--paddle);
+  font-size: 10px;
+  border: 1px solid color-mix(in srgb, var(--paddle) 40%, transparent);
+  border-radius: 20px;
+  padding: 2px 7px;
+}
+.inspector-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.inspector-body > * {
+  flex: none;
+}
+.inspector .timing-summary {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.setup-row {
+  display: grid;
+  gap: 7px;
+}
+.setup small {
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.field-label {
+  display: block;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.segment-fields {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.segment-fields input {
+  width: 0;
+  min-width: 58px;
+  flex: 1;
+  padding: 6px 7px;
+  font-size: 13px;
+}
+.segment-fields button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.segment-fields .dash {
+  color: var(--faint);
+}
+.setup-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.setup-buttons button {
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+.setup-buttons button[aria-pressed='true'] {
+  border-color: var(--text);
+}
+.setup .primary {
+  padding: 11px 13px;
+}
+.help {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.paddle-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.paddle-buttons button {
+  padding: 8px 6px;
+  font-size: 12.5px;
+}
+.picked {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.active {
+  border-color: var(--text) !important;
+  color: var(--text);
+}
+.target-intro {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  text-align: center;
+}
+.target-intro p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.notes {
+  display: grid;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+textarea {
+  width: 100%;
+  height: 96px;
+  resize: vertical;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* -------------------------------------------------------------------- dock */
+.dock {
+  --label: 104px;
+  --end: 14px;
+  position: relative;
+  min-width: 0;
+  padding-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  user-select: none;
+}
+.dock-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.transport button {
+  padding: 6px 9px;
+}
+.transport .play {
+  padding: 6px 14px;
+}
+.transport [data-slot='select-trigger'] {
+  min-width: 62px;
+}
+.transport .toggle {
+  margin-left: 6px;
+}
+.clock {
+  display: flex;
+  gap: 5px;
+  margin: 0 6px;
+  font:
+    12.5px Consolas,
+    monospace;
+  white-space: nowrap;
+}
+.clock span {
+  color: var(--faint);
+}
+.layers {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+}
+.shortcuts {
+  position: relative;
+  font-size: 12px;
+}
+.shortcuts > summary {
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--control-line);
+  border-radius: 7px;
+  color: var(--muted);
+  list-style: none;
+  cursor: pointer;
+}
+.shortcuts > summary::-webkit-details-marker {
+  display: none;
+}
+.shortcuts[open] > summary {
+  background: var(--control-hover);
+  color: var(--text);
+}
+.shortcuts ul {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  display: grid;
+  gap: 7px;
+  min-width: 250px;
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--menu);
+  box-shadow: 0 10px 26px var(--shadow);
+  color: var(--muted);
+  list-style: none;
+  white-space: nowrap;
+}
+
+/* Context row: what you can do to the picked mark, or at the playhead. */
+.dock-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.dock-context button,
+.dock-context select {
+  flex: none;
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+.dock-context select {
+  border: 1px solid var(--control-line);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.ctx-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.ctx-title strong {
+  font-weight: 600;
+}
+.ctx-title time,
+.ctx-title small,
+.ctx-label,
+.ctx-why {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ctx-title time {
+  font-variant-numeric: tabular-nums;
+}
+.ctx-sep {
+  flex: none;
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--line);
+}
+.ctx-why {
+  margin-left: 4px;
+}
+.dock-context .ctx-close {
+  margin-left: auto;
+  padding: 5px 7px;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.side-pick {
+  flex: none;
+  display: inline-flex;
+  gap: 2px;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.dock-context .side-pick button {
+  min-height: 24px;
+  padding: 2px 9px;
+  gap: 6px;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.dock-context .side-pick button[aria-pressed='true'] {
+  border-color: var(--control-line);
+  background: var(--control-hover);
+  color: var(--text);
+  font-weight: 600;
+}
+/* Side colours are the arm colours on the skeleton, so a lane reads as the
+   limb it belongs to. */
+.side-Left {
+  --side: var(--key-arm-l);
+}
+.side-Right {
+  --side: var(--key-arm-r);
+}
+.side-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--side);
+}
+
+/* Lanes: a fixed label column, then the shared time axis. */
+.lanes {
+  --on-side: #0b0b09;
+  position: relative;
+  padding-top: 4px;
+}
+:root[data-theme='light'] .lanes {
+  --on-side: #ffffff;
+}
+.lane {
+  display: flex;
+  height: 18px;
+}
+.lane-label {
+  flex: none;
+  width: var(--label);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+  overflow: hidden;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lane-label small {
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.lane-label .lane-tool {
+  margin-left: auto;
+  padding: 3px;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.lane-label .lane-tool[aria-pressed='true'] {
+  border-color: var(--control-line);
+  background: var(--control);
+  color: var(--text);
+}
+.lane-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin-right: var(--end);
+  overflow: hidden;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+  touch-action: none;
+}
+.lane-track > * {
+  position: absolute;
+}
+/* Everything on a lane keeps its own fill on hover; only the light changes. */
+.lane-track button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--bg);
+}
+.lane-track button:hover:not(:disabled) {
+  background: var(--bg);
+  filter: brightness(1.18);
+}
+.lane-track button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+.lane-ruler {
+  height: 34px;
+  margin-bottom: 2px;
+}
+.lane-ruler .lane-track {
+  border: 0;
+  border-radius: 5px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.tick {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-soft);
+}
+.tick span {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font:
+    10px Consolas,
+    monospace;
+  color: var(--faint);
+}
+.seg-window {
+  top: 0;
+  bottom: 0;
+  background: var(--window-fill);
+}
+.lane-ruler .band {
+  top: 17px;
+  bottom: 6px;
+  background: var(--band);
+  border-radius: 2px;
+}
+.seg-grip {
+  top: 3px;
+  bottom: 3px;
+  z-index: 2;
+  width: 10px;
+  border: 1px solid var(--grip-line);
+  border-radius: 3px;
+  background: var(--grip);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.seg-in {
+  border-radius: 3px 1px 1px 3px;
+}
+.seg-out {
+  margin-left: -10px;
+  border-radius: 1px 3px 3px 1px;
+}
+.seg-grip:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.seg-grip[aria-disabled] {
+  border-color: var(--grip-off-line);
+  background: var(--grip-off);
+  cursor: default;
+}
+.lane.lane-side {
+  height: 28px;
+}
+.lane-side .lane-label::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--side);
+}
+.water {
+  top: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--side) 45%, transparent);
+}
+/* Suggested: an outline in the side's colour. Confirmed: filled. */
+.lane-track .marker {
+  --bg: var(--panel);
+  top: 4px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border: 1px dashed var(--side);
+  border-radius: 4px;
+  color: var(--side);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.lane-track .marker[data-reviewed='true'] {
+  --bg: var(--side);
+  border-style: solid;
+  color: var(--on-side);
+}
+.lane-track .marker[aria-pressed='true'] {
+  z-index: 2;
+  box-shadow:
+    0 0 0 2px var(--panel),
+    0 0 0 3px var(--text);
+}
+.lane-track .key {
+  --bg: var(--muted);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  transform: rotate(45deg);
+  border-radius: 1px;
+}
+.lane-track .key-target {
+  --bg: var(--orange);
+}
+.lane-track .key-paddle {
+  --bg: var(--paddle);
+}
+.lane-track .flag {
+  --bg: var(--warn);
+  top: 3px;
+  bottom: 3px;
+  width: 5px;
+  margin-left: -2.5px;
+}
+.lane-track .transition {
+  --bg: repeating-linear-gradient(
+    135deg,
+    transparent 0 4px,
+    color-mix(in srgb, var(--muted) 40%, transparent) 4px 6px
+  );
+  top: 3px;
+  bottom: 3px;
+  min-width: 4px;
+  border: 1px solid var(--muted);
+  border-radius: 3px;
+}
+.lane-track .transition[aria-pressed='true'] {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.lane-track .transition.pending {
+  border-style: dashed;
+  background: none;
+  pointer-events: none;
+}
+/* The playhead and the part outside the trecho run across every lane. */
+.lanes-axis {
+  position: absolute;
+  top: 4px;
+  bottom: 0;
+  left: var(--label);
+  right: var(--end);
+  z-index: 3;
+  pointer-events: none;
+}
+.lanes-axis > * {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.outside {
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+.playhead {
+  width: 2px;
+  margin-left: -1px;
+  background: var(--playhead);
+}
+.playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  border: 5px solid transparent;
+  border-top-color: var(--playhead);
+  border-bottom: 0;
+}
+
+/* ------------------------------------------------------------- tighter fits */
+@media (max-height: 800px) {
+  .rail-btn {
+    min-height: 44px;
+    padding: 5px 2px;
+    gap: 3px;
+    font-size: 11px;
+  }
+  .dock-head {
+    min-height: 40px;
+    padding: 3px 10px;
+  }
+  .dock-context {
+    min-height: 36px;
+    padding: 3px 10px;
+  }
+  .dock-context button,
+  .dock-context select {
+    min-height: 28px;
+  }
+  .lane {
+    height: 16px;
+  }
+  .lane.lane-ruler {
+    height: 30px;
+  }
+  .lane-ruler .band {
+    top: 15px;
+    bottom: 5px;
+  }
+  .lane.lane-side {
+    height: 26px;
+  }
+  .lane-track .marker {
+    top: 3px;
+  }
+}
+@media (max-width: 1100px) {
+  .workspace[data-inspector] {
+    grid-template-columns: var(--rail) minmax(0, 1fr) 256px;
+  }
+  .workspace[data-inspector='compare'],
+  .workspace[data-inspector='3d'] {
+    grid-template-columns: var(--rail) minmax(0, 1fr) 300px;
+  }
+  .clock span,
+  .topbar .file small {
+    display: none;
+  }
+  .dock-head,
+  .layers {
+    gap: 10px;
+  }
+}
+@media (max-width: 960px) {
+  .transport .toggle {
+    margin-left: 2px;
+  }
+}
+/* Phones and narrow browser windows: stack instead of squeezing. */
+@media (max-width: 760px) {
+  .studio {
+    height: auto;
+    min-height: 0;
+    padding-inline: 8px;
+  }
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 0;
+  }
+  .workspace,
+  .workspace[data-inspector],
+  .workspace[data-inspector='compare'],
+  .workspace[data-inspector='3d'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .rail-group {
+    flex-direction: row;
+  }
+  .rail-btn {
+    width: 66px;
+  }
+  .rail-sep {
+    width: 1px;
+    height: auto;
+    margin: 8px 3px;
+  }
+  .stage {
+    height: 58vw;
+  }
+  .dock {
+    --label: 78px;
+  }
+  .dock-head {
+    flex-wrap: wrap;
+  }
+  .layers {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+  .hud-mode {
+    display: none;
+  }
+}
+.inspector-body button {
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+.inspector-body .primary {
+  font-size: 14px;
+}
+/* The desktop window's floor (900 × 650, less its title and menu bars). */
+@media (max-height: 700px) {
+  .studio {
+    gap: 6px;
+    padding-bottom: 6px;
+  }
+  .topbar {
+    height: 42px;
+  }
+  .rail-btn {
+    min-height: 0;
+    padding: 4px 2px;
+    gap: 2px;
+    font-size: 10.5px;
+    line-height: 1.25;
+  }
+  .rail-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+  .rail-sep {
+    margin: 3px 10px;
+  }
+  .dock-head {
+    min-height: 36px;
+    padding: 2px 10px;
+  }
+  .transport button {
+    padding: 4px 8px;
+  }
+  .dock-context {
+    min-height: 34px;
+    padding: 2px 10px;
+  }
+  .dock-context button,
+  .dock-context select {
+    min-height: 26px;
+    padding: 2px 9px;
+  }
+  .lane {
+    height: 14px;
+  }
+  .lane.lane-ruler {
+    height: 28px;
+  }
+  .lane-ruler .band {
+    top: 14px;
+    bottom: 5px;
+  }
+  .lane.lane-side {
+    height: 24px;
+  }
+  .lane-track .marker {
+    top: 3px;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    font-size: 11px;
+  }
+  .water {
+    top: 10px;
+  }
+}

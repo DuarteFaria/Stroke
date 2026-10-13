@@ -26,10 +26,10 @@ export default function StrokeComparison({project: p, disabled, replay}: {
     [strokes.filter(s => s.side === 'Left'),strokes.filter(s => s.side === 'Right')];
   const labels = mode === 'strokes' ? ['A','B'] : ['Esquerda','Direita'];
   return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparações de pagaiadas">
-    <div className="comparison-heading"><div><h2>Comparar pagaiadas</h2><p>{strokes.length} pares entrada/saída confirmados · {strokes.filter(s => s.end !== null).length} ciclos completos</p></div>
+    <div className="comparison-heading"><div><p>{strokes.length} pares entrada/saída confirmados · {strokes.filter(s => s.end !== null).length} ciclos completos</p></div>
       <fieldset className="comparison-tabs"><legend className="sr-only">Tipo de comparação</legend><button aria-pressed={mode === 'strokes'} onClick={() => setMode('strokes')}>Pagaiada a pagaiada</button><button aria-pressed={mode === 'sides'} onClick={() => setMode('sides')}>Esquerda / direita</button></fieldset>
     </div>
-    {!strokes.length ? <p className="comparison-empty">Adicione e confirme uma entrada e uma saída do mesmo lado na linha do tempo. Para comparar a duração do ciclo e a recuperação, marque também a próxima entrada desse lado e a entrada intermédia do lado oposto.</p> : <>
+    {!strokes.length ? <p className="comparison-empty">Adiciona e confirma uma entrada e uma saída do mesmo lado na linha do tempo. Para comparar o ciclo e a recuperação, marca também a próxima entrada desse lado e a entrada intermédia do lado oposto.</p> : <>
       {mode === 'strokes' ? <>
         <label className="comparison-filter">Mostrar <select value={sideFilter} onChange={e => setSideFilter(e.target.value as typeof sideFilter)}><option value="All">Ambos os lados</option><option value="Left">Só esquerda</option><option value="Right">Só direita</option></select></label>
         <div className="comparison-pickers">{chosen.map((s,index) => <div key={index}>
@@ -37,7 +37,7 @@ export default function StrokeComparison({project: p, disabled, replay}: {
             {!s && <option value="">Sem outra pagaiada</option>}{filtered.map(option => <option key={option.id} value={option.id} disabled={chosen[1-index]?.id === option.id}>{strokeName(option)}</option>)}</select></label>
           <div className="comparison-actions"><button disabled={disabled || !s} onClick={() => s && replay(s.start,s.end ?? s.exit)}>Rever {labels[index]}</button></div>
         </div>)}</div>
-        {!b && <p>Escolha um filtro com pelo menos duas pagaiadas para comparar A e B.</p>}
+        {!b && <p>Escolhe um filtro com pelo menos duas pagaiadas para comparar A e B.</p>}
       </> : <p>Médias de todas as pagaiadas válidas no segmento selecionado. O número de amostras é indicado em cada medida.</p>}
       <div className="comparison-table-wrap"><table className="comparison-table"><caption>{mode === 'strokes' ? 'Tempos das pagaiadas selecionadas' : 'Tempos médios por lado'}</caption><thead><tr><th scope="col">Medida</th>{labels.map(l => <th scope="col" key={l}>{l}</th>)}<th scope="col">{mode === 'strokes' ? 'B − A' : 'Direita − esquerda'}</th></tr></thead><tbody>
         {metrics.map(metric => {
