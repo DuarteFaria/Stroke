@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('strokeDesktop', {
   adoptProject: (id) => ipcRenderer.invoke('stroke:adoptProject', id),
   openVideo: () => ipcRenderer.invoke('stroke:openVideo'),
   saveProject: (text, name) => ipcRenderer.invoke('stroke:saveProject', text, name),
+  saveImage: (data, name) => ipcRenderer.invoke('stroke:saveImage', data, name),
   resetProject: () => ipcRenderer.invoke('stroke:resetProject'),
   rememberVideo: (id) => ipcRenderer.invoke('stroke:rememberVideo', id),
   recover: () => ipcRenderer.invoke('stroke:recover'),

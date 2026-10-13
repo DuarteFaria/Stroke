@@ -8,6 +8,8 @@ declare global {
       adoptProject(id: string): Promise<DesktopVideo | null>;
       openVideo(): Promise<DesktopVideo | null>;
       saveProject(text: string, name: string): Promise<boolean>;
+      /** PNG bytes; optional so an older shell falls back to a download. */
+      saveImage?(data: Uint8Array, name: string): Promise<boolean>;
       resetProject(): Promise<void>;
       rememberVideo(id: string): Promise<void>;
       recover(): Promise<DesktopProject | null>;

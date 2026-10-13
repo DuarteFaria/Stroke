@@ -2,6 +2,7 @@
 import StrokeReview, { TimingSummary } from './StrokeReview';
 import StrokeComparison from './StrokeComparison';
 import Pose3D from './Pose3D';
+import { useDrawing, DrawingLayer, DrawingToolbar, DrawingMarks } from './Drawing';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -826,6 +827,8 @@ export default function Studio() {
   );
   const reviewedPose = cautiousLegs(corrected, reviewFlags, time);
   const reviewedTarget = cautiousLegs(target, reviewFlags, time);
+  const drawing = useDrawing({ project: p, current, commit, time, playing,
+    pose: reviewedPose, enabled: !!src && !busy, askConfirm, say });
   const paddle = useMemo(() => keyAt(p.paddle, time, false), [p.paddle, time]);
   const targetPaddle = useMemo(() => {
     const delta = keyAt(p.targetPaddle, time);
@@ -1322,6 +1325,7 @@ export default function Studio() {
                     showTarget &&
                     paddleDrawing(targetPaddle, INK.target, true)}
                 </svg>
+                <DrawingLayer d={drawing} />
                 <div className="hud">
                   <span className="hud-time">{fmt(time)}</span>
                   <span className="hud-mode">{MODES[mode].hud}</span>
@@ -1350,6 +1354,7 @@ export default function Studio() {
                     </button>
                   </div>
                 )}
+                <DrawingToolbar d={drawing} />
               </div>
             ) : (
               <div className="empty">
@@ -1389,6 +1394,7 @@ export default function Studio() {
                       width: `${pct(p.segment[1]) - pct(p.segment[0])}%`,
                     }}
                   />
+                  <DrawingMarks d={drawing} pct={pct} seek={seek} />
                 </div>
               </div>
               <input
@@ -1507,6 +1513,9 @@ export default function Studio() {
                 </li>
                 <li>
                   <kbd>Ctrl</kbd>+<kbd>S</kbd> guardar
+                </li>
+                <li>
+                  <kbd>D</kbd> desenhar
                 </li>
               </ul>
             </details>

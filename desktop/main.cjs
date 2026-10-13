@@ -85,6 +85,16 @@ function installIPC() {
     await atomic(destination, text); projectPath = destination; await remember();
     return true;
   });
+  handle('saveImage', async (data, name) => {
+    const bytes = data instanceof Uint8Array ? Buffer.from(data) : null;
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    if (!bytes || bytes.length > 64 * 1024 ** 2 || !png.every((b, i) => bytes[i] === b)) throw Error('Imagem inválida.');
+    const base = String(name).replace(/\.png$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80) || 'stroke';
+    const result = await dialog.showSaveDialog(win, { title: 'Exportar imagem', defaultPath: `${base}.png`, filters: [{ name: 'Imagem PNG', extensions: ['png'] }] });
+    if (result.canceled || !result.filePath) return false;
+    await atomic(result.filePath, bytes);
+    return true;
+  });
   handle('snapshot', (text, isDirty) => {
     projectText(text);
     const snapshot = JSON.stringify({ text, dirty: !!isDirty, file: projectPath, video: videoPath });
