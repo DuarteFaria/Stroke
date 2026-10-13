@@ -322,7 +322,6 @@ export default function Timeline({
     .map((x) => x.t)
     .sort((a, b) => a - b)
     .reduce<number[]>((out, t) => (out.length && t - out[out.length - 1] <= 0.05 ? out : [...out, t]), []);
-  const showMarkers = tracked || events.length > 0;
   const outside = !hasVideo || !inSegment;
 
   return (
@@ -574,125 +573,117 @@ export default function Timeline({
           <div {...grip('in')} />
           <div {...grip('out')} />
         </Lane>
-        {showMarkers &&
-          (['Left', 'Right'] as const).map((s) => {
-            const list = events.filter((e) => e.side === s);
+        {(['Left', 'Right'] as const).map((s) => {
+          const list = events.filter((e) => e.side === s);
+          return (
+            <Lane
+              key={s}
+              name={s === 'Left' ? 'Esquerda' : 'Direita'}
+              className={`lane-side side-${s}`}
+              empty={!list.length}
+              note={<small>{list.length || ''}</small>}
+              track={track}
+            >
+              {water(list).filter(([a, b]) => spans(a, b)).map(([a, b]) => (
+                <span
+                  key={a}
+                  className="water"
+                  title={`Na água ${(b - a).toFixed(2)} s`}
+                  style={{ left: at(a), width: width(a, b) }}
+                />
+              ))}
+              {list.filter((e) => seen(e.t)).map((e) => (
+                <button
+                  key={e.id}
+                  className={`marker marker-${e.kind === 'Catch' ? 'entry' : 'exit'}`}
+                  data-reviewed={reviewed(e)}
+                  aria-pressed={active?.id === e.id}
+                  style={{ left: at(e.t) }}
+                  disabled={unavailable}
+                  title={`${eventName(e)} · ${e.t.toFixed(2)} s · ${reviewed(e) ? 'confirmada' : 'por rever'}`}
+                  aria-label={`${eventName(e)} em ${e.t.toFixed(2)} segundos, ${reviewed(e) ? 'confirmada' : 'por rever'}`}
+                  onClick={() => choose(e)}
+                >
+                  {e.kind === 'Catch' ? '↓' : '↑'}
+                </button>
+              ))}
+            </Lane>
+          );
+        })}
+        <Lane name="Edições" className="lane-edits" empty={!editKeys.length} note={<small>{editKeys.length}</small>} track={track}>
+          {editKeys.filter((k) => seen(k.t)).map((k) => (
+            <button
+              key={`${k.mode}-${k.t}`}
+              className={`key key-${k.mode}`}
+              style={{ left: at(k.t) }}
+              disabled={unavailable}
+              title={`${editName[k.mode]} editado · ${fmt(k.t)}`}
+              aria-label={`${editName[k.mode]} editado em ${fmt(k.t)}`}
+              onClick={() => onKey(k.mode, k.t)}
+            />
+          ))}
+        </Lane>
+        <Lane name="Avisos" className="lane-flags" empty={!flags.length} note={<small>{flags.length}</small>} track={track}>
+          {flagGroups.filter((g) => seen(g.t)).map((g) => {
+            const what = g.list
+              .map(
+                (f) =>
+                  `${JOINTS[f.joint]}: ${f.kind === 'swap' ? 'troca de lados?' : 'salto?'}`,
+              )
+              .join('\n');
             return (
-              <Lane
-                key={s}
-                name={s === 'Left' ? 'Esquerda' : 'Direita'}
-                className={`lane-side side-${s}`}
-                note={<small>{list.length || ''}</small>}
-                track={track}
-              >
-                {water(list).filter(([a, b]) => spans(a, b)).map(([a, b]) => (
-                  <span
-                    key={a}
-                    className="water"
-                    title={`Na água ${(b - a).toFixed(2)} s`}
-                    style={{ left: at(a), width: width(a, b) }}
-                  />
-                ))}
-                {list.filter((e) => seen(e.t)).map((e) => (
-                  <button
-                    key={e.id}
-                    className={`marker marker-${e.kind === 'Catch' ? 'entry' : 'exit'}`}
-                    data-reviewed={reviewed(e)}
-                    aria-pressed={active?.id === e.id}
-                    style={{ left: at(e.t) }}
-                    disabled={unavailable}
-                    title={`${eventName(e)} · ${e.t.toFixed(2)} s · ${reviewed(e) ? 'confirmada' : 'por rever'}`}
-                    aria-label={`${eventName(e)} em ${e.t.toFixed(2)} segundos, ${reviewed(e) ? 'confirmada' : 'por rever'}`}
-                    onClick={() => choose(e)}
-                  >
-                    {e.kind === 'Catch' ? '↓' : '↑'}
-                  </button>
-                ))}
-              </Lane>
+              <button
+                key={g.t}
+                className="flag"
+                style={{ left: at(g.t) }}
+                disabled={busy || !hasVideo}
+                title={`${fmt(g.t)}\n${what}`}
+                aria-label={`Rever ${fmt(g.t)}: ${what}`}
+                onClick={() => onFlag(g.list[0])}
+              />
             );
           })}
-        {editKeys.length > 0 && (
-          <Lane name="Edições" className="lane-edits" note={<small>{editKeys.length}</small>} track={track}>
-            {editKeys.filter((k) => seen(k.t)).map((k) => (
-              <button
-                key={`${k.mode}-${k.t}`}
-                className={`key key-${k.mode}`}
-                style={{ left: at(k.t) }}
-                disabled={unavailable}
-                title={`${editName[k.mode]} editado · ${fmt(k.t)}`}
-                aria-label={`${editName[k.mode]} editado em ${fmt(k.t)}`}
-                onClick={() => onKey(k.mode, k.t)}
-              />
-            ))}
-          </Lane>
-        )}
-        {flagGroups.length > 0 && (
-          <Lane name="Avisos" className="lane-flags" note={<small>{flags.length}</small>} track={track}>
-            {flagGroups.filter((g) => seen(g.t)).map((g) => {
-              const what = g.list
-                .map(
-                  (f) =>
-                    `${JOINTS[f.joint]}: ${f.kind === 'swap' ? 'troca de lados?' : 'salto?'}`,
-                )
-                .join('\n');
-              return (
-                <button
-                  key={g.t}
-                  className="flag"
-                  style={{ left: at(g.t) }}
-                  disabled={busy || !hasVideo}
-                  title={`${fmt(g.t)}\n${what}`}
-                  aria-label={`Rever ${fmt(g.t)}: ${what}`}
-                  onClick={() => onFlag(g.list[0])}
-                />
-              );
-            })}
-          </Lane>
-        )}
-        {(transitions.length > 0 || transitionStart !== null) && (
-          <Lane name="Transições" className="lane-transitions" note={<small>{transitions.length || ''}</small>} track={track}>
-            {transitions.map(([a, b], i) => !spans(a, b) ? null : (
-              <button
-                key={`${a}-${b}`}
-                className="transition"
-                aria-label={`Transição ${fmt(a)} – ${fmt(b)}`}
-                aria-pressed={picked?.kind === 'transition' && picked.index === i}
-                style={{ left: at(a), width: width(a, b) }}
-                disabled={busy}
-                title={`Transição ${fmt(a)} – ${fmt(b)}`}
-                onClick={() => {
-                  setPicked({ kind: 'transition', index: i });
-                  setAdjusting(false);
-                  seek(a);
-                }}
-              />
-            ))}
-            {transitionStart !== null && (
-              <span
-                className="transition pending"
-                style={{
-                  left: at(Math.min(transitionStart, time)),
-                  width: width(Math.min(transitionStart, time), Math.max(transitionStart, time)),
-                }}
-              />
-            )}
-          </Lane>
-        )}
-        {drawingTimes.length > 0 && (
-          <Lane name="Desenhos" className="lane-sketches" note={<small>{drawingTimes.length}</small>} track={track}>
-            {drawingTimes.filter(seen).map((t) => (
-              <button
-                key={t}
-                className="sketch"
-                style={{ left: at(t) }}
-                disabled={unavailable}
-                title={`Desenho em ${fmt(t)}`}
-                aria-label={`Ir para o desenho em ${fmt(t)}`}
-                onClick={() => seek(t)}
-              />
-            ))}
-          </Lane>
-        )}
+        </Lane>
+        <Lane name="Transições" className="lane-transitions" empty={!transitions.length && transitionStart === null} note={<small>{transitions.length || ''}</small>} track={track}>
+          {transitions.map(([a, b], i) => !spans(a, b) ? null : (
+            <button
+              key={`${a}-${b}`}
+              className="transition"
+              aria-label={`Transição ${fmt(a)} – ${fmt(b)}`}
+              aria-pressed={picked?.kind === 'transition' && picked.index === i}
+              style={{ left: at(a), width: width(a, b) }}
+              disabled={busy}
+              title={`Transição ${fmt(a)} – ${fmt(b)}`}
+              onClick={() => {
+                setPicked({ kind: 'transition', index: i });
+                setAdjusting(false);
+                seek(a);
+              }}
+            />
+          ))}
+          {transitionStart !== null && (
+            <span
+              className="transition pending"
+              style={{
+                left: at(Math.min(transitionStart, time)),
+                width: width(Math.min(transitionStart, time), Math.max(transitionStart, time)),
+              }}
+            />
+          )}
+        </Lane>
+        <Lane name="Desenhos" className="lane-sketches" empty={!drawingTimes.length} note={<small>{drawingTimes.length}</small>} track={track}>
+          {drawingTimes.filter(seen).map((t) => (
+            <button
+              key={t}
+              className="sketch"
+              style={{ left: at(t) }}
+              disabled={unavailable}
+              title={`Desenho em ${fmt(t)}`}
+              aria-label={`Ir para o desenho em ${fmt(t)}`}
+              onClick={() => seek(t)}
+            />
+          ))}
+        </Lane>
         <div className="lanes-axis" aria-hidden="true">
           {(s0 > view[0] || s1 < view[1]) && (
             <>
@@ -712,6 +703,7 @@ function Lane({
   name,
   note,
   tool,
+  empty,
   className = '',
   track,
   children,
@@ -719,12 +711,14 @@ function Lane({
   name: string;
   note?: React.ReactNode;
   tool?: React.ReactNode;
+  /** Sem nada ainda: a pista fica, esbatida, para a doca não mudar de altura. */
+  empty?: boolean;
   className?: string;
   track: React.HTMLAttributes<HTMLDivElement>;
   children: React.ReactNode;
 }) {
   return (
-    <div className={`lane ${className}`}>
+    <div className={`lane ${className}`} data-empty={empty || undefined}>
       <div className="lane-label">
         <span>{name}</span>
         {note}

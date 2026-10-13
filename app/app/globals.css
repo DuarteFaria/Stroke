@@ -1503,6 +1503,16 @@ textarea {
 .lane-side .lane-label::before {
   background: var(--side);
 }
+/* Empty lanes stay, faded, so the dock never changes height. */
+.lane[data-empty] .lane-label {
+  color: var(--faint);
+}
+.lane[data-empty] .lane-label::before {
+  opacity: 0.4;
+}
+.lane[data-empty] .lane-label small {
+  visibility: hidden;
+}
 /* The other lanes show a small copy of the mark they carry. */
 .lane-edits .lane-label::before {
   width: 6px;
