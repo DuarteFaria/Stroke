@@ -12,4 +12,10 @@ contextBridge.exposeInMainWorld('strokeDesktop', {
   snapshot: (text, dirty) => ipcRenderer.invoke('stroke:snapshot', text, dirty),
   dirty: (value) => ipcRenderer.send('stroke:dirty', value),
   theme: (value) => ipcRenderer.send('stroke:theme', value),
+  installUpdate: () => ipcRenderer.invoke('stroke:installUpdate'),
+  onUpdate: (fn) => {
+    const listener = (_event, version) => fn(version);
+    ipcRenderer.on('stroke:update', listener);
+    return () => ipcRenderer.removeListener('stroke:update', listener);
+  },
 });
