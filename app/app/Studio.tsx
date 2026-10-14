@@ -299,6 +299,10 @@ export default function Studio() {
   // Apresentar: só o vídeo e o transporte, para mostrar ao atleta.
   const [present, setPresent] = useState(false);
   const reviewLoop = useRef<[number, number] | null>(null);
+  // O último fotograma pintado e quantas vezes a imagem encravou: para dar
+  // com um descodificador parado.
+  const lastFrame = useRef({ at: 0, t: 0 });
+  const stalls = useRef(0);
   // A velocidade de antes de rever uma pagaiada, para voltar a ela no fim.
   const speedBefore = useRef<string | null>(null);
   /** Acaba a revisão de uma pagaiada: deixa de repetir e repõe a velocidade. */
@@ -311,6 +315,7 @@ export default function Studio() {
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
   function setSrc(value: string) {
+    stalls.current = 0;
     endReview();
     setTransitionStart(null);
     setVideoSrc(value);
@@ -609,6 +614,7 @@ export default function Studio() {
     if (!v || !src || !framed) return;
     let id = 0;
     const onFrame: VideoFrameRequestCallback = (_, frame) => {
+      lastFrame.current = { at: performance.now(), t: frame.mediaTime };
       // O último fotograma pode dizer-se um pouco depois do fim do vídeo.
       if (!v.paused) setTime(Math.min(frame.mediaTime, v.duration || Infinity));
       id = v.requestVideoFrameCallback(onFrame);
@@ -616,11 +622,24 @@ export default function Studio() {
     id = v.requestVideoFrameCallback(onFrame);
     return () => v.cancelVideoFrameCallback(id);
   }, [src]);
+  const warnStall = useEffectEvent(() =>
+    say('O vídeo encrava a reproduzir neste computador. Se continuar, converte-o para MP4 (H.264).', 'warn'),
+  );
   useEffect(() => {
     let handle = 0;
     const tick = () => {
       const v = video.current;
       if (v && !v.paused) {
+        // Há descodificadores que param de dar fotogramas a meio (vídeos do
+        // YouTube, sem som): um segundo sem imagem nova, salta para onde o
+        // vídeo devia ir, o que os põe a andar outra vez.
+        const f = lastFrame.current, now = performance.now();
+        if (!framed || v.seeking) f.at = now;
+        else if (now - f.at > 1000) {
+          f.at = now;
+          v.currentTime = Math.max(v.currentTime, f.t + 1 / current.current.video.fps);
+          if (++stalls.current === 3) warnStall();
+        }
         const [a, b] = reviewLoop.current || current.current.segment;
         if (v.currentTime >= b) {
           if (loop || reviewLoop.current) {
@@ -1605,7 +1624,10 @@ export default function Studio() {
                 ref={video}
                 src={src}
                 onLoadedMetadata={metadata}
-                onPlay={() => setPlaying(true)}
+                onPlay={() => {
+                  lastFrame.current.at = performance.now();
+                  setPlaying(true);
+                }}
                 onPause={() => setPlaying(false)}
                 onTimeUpdate={(e) => {
                   if (!framed || e.currentTarget.paused) setTime(e.currentTarget.currentTime);
