@@ -1,7 +1,7 @@
 {
   "name": "stroke-desktop",
   "productName": "Stroke",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Estúdio local de movimento em caiaque",
   "author": "Stroke",
   "private": true,
@@ -13,11 +13,13 @@
     "dist": "electron-builder --win nsis --x64",
     "dist:mac": "electron-builder --mac dmg --arm64 --publish never"
   },
+  "dependencies": { "electron-updater": "6.8.9" },
   "devDependencies": { "electron": "44.2.0", "electron-builder": "26.15.3" },
   "build": {
     "appId": "pt.stroke.studio",
     "asar": true,
     "directories": { "output": "../release" },
+    "publish": { "provider": "github", "owner": "DuarteFaria", "repo": "Stroke" },
     "files": ["*.cjs", "loading.html", "icon.png"],
     "extraResources": [
       { "from": "../LICENSE", "to": "LICENSE.txt" },

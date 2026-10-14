@@ -3,7 +3,7 @@ export type DesktopProject = { id: string; text: string };
 declare global {
   interface Window {
     strokeDesktop?: {
-      config(): Promise<{ api: string; token: string; version: string }>;
+      config(): Promise<{ api: string; token: string; version: string; update: string | null }>;
       openProject(): Promise<DesktopProject | null>;
       adoptProject(id: string): Promise<DesktopVideo | null>;
       openVideo(): Promise<DesktopVideo | null>;
@@ -16,6 +16,8 @@ declare global {
       snapshot(text: string, dirty: boolean): Promise<void>;
       dirty(value: boolean): void;
       theme(value: 'light' | 'dark'): void;
+      installUpdate(): Promise<void>;
+      onUpdate(fn: (version: string) => void): () => void;
     };
   }
 }

@@ -12,7 +12,7 @@ let win, server, analyzer, origin, api, dirty = false, quitting = false;
 let analyzerReady;
 const launchedAt = performance.now();
 const milestone = name => log(`Startup ${name}: ${Math.round(performance.now() - launchedAt)} ms`);
-let projectPath = null, videoPath = null;
+let projectPath = null, videoPath = null, updater = null, updateVersion = null, relaunch = false;
 let writeQueue = Promise.resolve();
 const token = randomBytes(32).toString('hex');
 const videos = new Map(), pending = new Map();
@@ -64,7 +64,8 @@ function handle(name, fn) {
   });
 }
 function installIPC() {
-  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion() }; });
+  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion(), update: updateVersion }; });
+  handle('installUpdate', () => { relaunch = true; win.close(); });
   handle('openProject', async () => {
     const result = await dialog.showOpenDialog(win, { title: 'Abrir projeto', filters: [{ name: 'Projeto Stroke', extensions: ['json'] }], properties: ['openFile'] });
     if (result.canceled) return null;
@@ -209,7 +210,8 @@ async function stop() {
     await Promise.race([new Promise(resolve => analyzer.once('exit', resolve)), new Promise(resolve => setTimeout(resolve, 7000))]);
     if (analyzer.exitCode === null) analyzer.kill();
   }
-  server?.close(); app.exit();
+  server?.close();
+  if (updater) updater.quitAndInstall(true, relaunch); else app.exit();
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -229,7 +231,7 @@ else {
     win.on('close', event => {
       if (quitting) return;
       event.preventDefault();
-      if (dirty && dialog.showMessageBoxSync(win, { type: 'question', title: 'Fechar o Stroke?', message: 'Tens alterações por guardar.', detail: 'Volta ao editor para guardar. A cópia de recuperação fica disponível na próxima abertura.', buttons: ['Voltar ao editor', 'Fechar'], defaultId: 0, cancelId: 0 }) !== 1) return;
+      if (dirty && dialog.showMessageBoxSync(win, { type: 'question', title: 'Fechar o Stroke?', message: 'Tens alterações por guardar.', detail: 'Volta ao editor para guardar. A cópia de recuperação fica disponível na próxima abertura.', buttons: ['Voltar ao editor', 'Fechar'], defaultId: 0, cancelId: 0 }) !== 1) { relaunch = false; return; }
       void stop();
     });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -248,6 +250,17 @@ else {
       installIPC();
       await win.loadURL(origin);
       milestone('editor-loaded');
+      if (app.isPackaged && process.platform === 'win32' && !smoke) {
+        const { autoUpdater } = require('electron-updater');
+        autoUpdater.logger = { info: log, warn: log, error: log };
+        autoUpdater.autoInstallOnAppQuit = false;
+        autoUpdater.once('update-downloaded', ({ version }) => {
+          log(`Update ${version} downloaded; installing on quit`);
+          updater = autoUpdater; updateVersion = version;
+          win.webContents.send('stroke:update', version);
+        });
+        autoUpdater.checkForUpdates().then(result => result?.downloadPromise).catch(err => log(`Update failed: ${err.message}`));
+      }
       if (smoke) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         const result = await win.webContents.executeJavaScript(`({ title: document.title, text: document.body.innerText, bridge: !!window.strokeDesktop })`);

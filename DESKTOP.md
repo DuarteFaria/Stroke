@@ -44,7 +44,7 @@ This developer launch uses `.venv`; release builds use the bundled executable. T
 
 ### GitHub Actions and Releases (Windows and macOS)
 
-Open the repository's **Actions → Desktop installers → Run workflow**. The workflow must be merged into the default branch before this manual button is available. Relevant pull requests and version tags such as `v0.2.1` also trigger builds. No signing secrets are needed. Every push to main (including a merged pull request), a manual run on main, or a matching version tag publishes both verified installers to GitHub Releases. Pull request builds never publish.
+Open the repository's **Actions → Desktop installers → Run workflow**. The workflow must be merged into the default branch before this manual button is available. Relevant pull requests and version tags such as `v0.2.1` also trigger builds. No signing secrets are needed. Only a version tag publishes to GitHub Releases; pushes to main and pull requests just build, test and keep the installers as workflow artifacts.
 
 Each job builds on its native OS using Python 3.12, Node 24, pnpm 11.19.0, and the checked-in dependencies. Windows produces `Stroke-Windows-x64`; macOS produces `Stroke-macOS-arm64`. Download and extract the artifact ZIP to get the `.exe` or `.dmg`. Workflow artifacts and smoke diagnostics expire after seven days; published Release assets remain available. Standard runners are free for this public repository; private repositories are subject to their account's included allowance.
 
@@ -74,11 +74,11 @@ This uses separate test application data and a copy of the project. It checks th
 - Test installation, uninstall/reinstall and first launch on a clean Windows x64 computer without development runtimes.
 - Test real footage and tracking speed on a slower tester's computer. Current Windows-host checks do not establish a minimum hardware specification.
 - Test interrupted analysis, recovery and video relocation with testers.
-- The initial installer is unsigned unless signing credentials are configured externally. Signing and automatic updates are not implemented as part of this beta; distribute new versioned installers manually.
+- The Windows installer is unsigned, so SmartScreen warns on the first install (**More info → Run anyway**). Installed copies check the Latest release on launch, download a newer version in the background and install it silently when Stroke closes; the next launch runs the new version. Updates are Windows-only: macOS needs Developer ID signing before it can update itself, so Mac users download new DMGs manually.
 - Test the downloaded macOS DMG on another Apple Silicon Mac, including first-launch approval, video playback, save/reopen, and analysis. The macOS runner's version is the initial validation baseline; compatibility with older macOS releases is not yet established.
 - Intel Mac/Linux packages and cloud features are deferred.
 
-Each successful main build creates a release tagged `desktop-build-<run number>` and marks it Latest, preserving older releases. The app version stays in `desktop/package.json`; the release build number distinguishes successive merges without automatic version commits. A version-tag build uses its `v<app version>` tag instead and rejects a mismatched version. Both installers must build and pass tests before publication. Uploads go to a draft first, so a failed upload cannot expose a release with only one installer. Reruns resume drafts, leave published releases unchanged, and skip superseded main commits. Download the current pair from [Latest release](https://github.com/DuarteFaria/Stroke/releases/latest).
+To release, bump `version` in `desktop/package.json`, merge, then push a matching tag (for example `git tag v0.3.0 && git push origin v0.3.0`). The tag build rejects a mismatched version, publishes both installers plus `latest.yml` and the blockmap the Windows updater reads, and marks the release Latest. Both installers must build and pass tests before publication. Uploads go to a draft first, so a failed upload cannot expose a partial release. Reruns resume drafts and leave published releases unchanged. Download the current pair from [Latest release](https://github.com/DuarteFaria/Stroke/releases/latest).
 
 ### Startup diagnostics
 
