@@ -11,6 +11,7 @@ const GROUPS: [string, Row[]][] = [
       [[['←'], ['→']], 'um fotograma'],
       [[['Shift', '←'], ['Shift', '→']], 'um segundo'],
       [[['Home'], ['End']], 'início e fim do trecho'],
+      [[['+'], ['−']], 'aproximar e afastar a linha do tempo (ou a roda do rato)'],
       [[['F']], 'apresentar ao atleta (Esc volta)'],
     ],
   ],

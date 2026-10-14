@@ -108,10 +108,10 @@ export default function Timeline({
   // A última marcação posta: fica escrita na linha em vez de abrir a marcação,
   // para se poderem pôr várias seguidas.
   const [placed, setPlaced] = useState<EventMark | null>(null);
-  const [zoomPref, setZoomPref] = useState<boolean | null>(null);
   // Enquanto se arrasta uma pega o eixo fica parado, senão fugia ao rato.
   const [held, setHeld] = useState<{ edge: 'in' | 'out'; view: [number, number] } | null>(null);
   const scrubbing = useRef(false);
+  const lanesRef = useRef<HTMLDivElement>(null);
   const unavailable = busy || !hasVideo;
   const duration = Math.max(0.01, p.video.duration);
   const fps = p.video.fps;
@@ -120,13 +120,56 @@ export default function Timeline({
   const inSegment = time >= s0 - 0.001 && time <= s1 + 0.001;
 
   // ------------------------------------------------------------------ axis
-  const canZoom = tracked && segLength < duration * 0.85;
-  const zoomed = canZoom && (zoomPref ?? true);
+  // Sem janela escolhida, as pistas mostram o trecho analisado (ou o vídeo).
   const pad = segLength * 0.04;
+  const fit: [number, number] =
+    tracked && segLength < duration * 0.85
+      ? [Math.max(0, s0 - pad), Math.min(duration, s1 + pad)]
+      : [0, duration];
+  // Num vídeo longo já analisado as marcações não cabem: abre numa janela de
+  // 20 s, que o mapa por cima mostra e deixa arrastar.
+  const opening = () =>
+    tracked && fit[1] - fit[0] > 30 ? { start: fit[0], span: 20 } : null;
+  const [zoom, setZoom] = useState<{ start: number; span: number } | null>(opening);
+  const clip = `${p.video.name}|${duration}|${tracked}`;
+  const [zoomClip, setZoomClip] = useState(clip);
+  if (zoomClip !== clip) {
+    setZoomClip(clip);
+    setZoom(opening());
+  }
+  // A arrastar a janela no mapa: onde começou o gesto.
+  const [pan, setPan] = useState<{ x: number; start: number } | null>(null);
   const view: [number, number] =
-    held?.view ??
-    (zoomed ? [Math.max(0, s0 - pad), Math.min(duration, s1 + pad)] : [0, duration]);
+    held?.view ?? (zoom ? [zoom.start, zoom.start + zoom.span] : fit);
   const span = Math.max(0.01, view[1] - view[0]);
+  const panTo = (start: number) =>
+    setZoom({ start: clamp(start, 0, Math.max(0, duration - span)), span });
+  /** Muda a largura da janela com `around` parado no mesmo sítio do ecrã. */
+  const zoomTo = (next: number, around: number, anchor: number) => {
+    const w = clamp(next, Math.min(1, duration), duration);
+    setZoom({ start: clamp(around - anchor * w, 0, duration - w), span: w });
+  };
+  const zoomBy = (factor: number) => {
+    const here = time >= view[0] && time <= view[1];
+    zoomTo(span * factor, here ? time : view[0] + span / 2, here ? (time - view[0]) / span : 0.5);
+  };
+  // Quando o tempo anda, o cursor não sai da janela: a reproduzir vira a
+  // página, um salto longe centra-o. Arrastar a janela para outro lado fica.
+  const [followed, setFollowed] = useState(time);
+  if (followed !== time) setFollowed(time);
+  if (
+    followed !== time &&
+    zoom &&
+    !held &&
+    !pan &&
+    hasVideo &&
+    (time < view[0] - 1e-6 || time > view[1] + 1e-6)
+  ) {
+    const ahead = time > view[1];
+    const near = (ahead ? time - view[1] : view[0] - time) < span * 0.25;
+    const start = near ? time - span * (ahead ? 0.1 : 0.9) : time - span / 2;
+    setZoom({ start: clamp(start, 0, Math.max(0, duration - span)), span });
+  }
   const frac = (t: number) => (clamp(t, view[0], view[1]) - view[0]) / span;
   const at = (t: number) => `${frac(t) * 100}%`;
   const width = (a: number, b: number) => `${Math.max(0, frac(b) - frac(a)) * 100}%`;
@@ -281,6 +324,11 @@ export default function Timeline({
       close();
       return;
     }
+    if ((e.key === '+' || e.key === '=' || e.key === '-') && !unavailable) {
+      e.preventDefault();
+      zoomBy(e.key === '-' ? 1 / 0.6 : 0.6);
+      return;
+    }
     const mark = MARKS.find((m) => m.key === e.key);
     if (!mark || unavailable || !inSegment || adjusting || keysOff) return;
     e.preventDefault();
@@ -291,6 +339,59 @@ export default function Timeline({
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
   }, []);
+  /** Roda: aproxima onde está o rato; Shift+roda (ou a roda de lado) desliza. */
+  const wheel = useEffectEvent((e: WheelEvent) => {
+    const r = lanesRef.current?.querySelector('.lane-track')?.getBoundingClientRect();
+    if (!r || unavailable) return;
+    e.preventDefault();
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      panTo(view[0] + ((e.shiftKey ? e.deltaY : e.deltaX) / r.width) * span);
+      return;
+    }
+    const f = clamp((e.clientX - r.left) / r.width);
+    zoomTo(span * Math.pow(1.0015, clamp(e.deltaY, -300, 300)), view[0] + f * span, f);
+  });
+  useEffect(() => {
+    const el = lanesRef.current;
+    if (!el) return;
+    const fn = (e: WheelEvent) => wheel(e);
+    el.addEventListener('wheel', fn, { passive: false });
+    return () => el.removeEventListener('wheel', fn);
+  }, []);
+  // ------------------------------------------------------------------ map
+  const whole = (t: number) => `${(clamp(t, 0, duration) / duration) * 100}%`;
+  const mapAt = (x: number, el: Element) => {
+    const r = el.getBoundingClientRect();
+    return clamp((x - r.left) / r.width) * duration;
+  };
+  /** O mapa: carregar salta para ali; arrastar a janela muda o que se vê. */
+  const map = {
+    onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+      if (unavailable || e.button !== 0) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      if ((e.target as HTMLElement).classList.contains('map-window')) {
+        setPan({ x: e.clientX, start: view[0] });
+        return;
+      }
+      scrubbing.current = true;
+      seek(mapAt(e.clientX, e.currentTarget));
+    },
+    onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+      if (pan) {
+        const r = e.currentTarget.getBoundingClientRect();
+        panTo(pan.start + ((e.clientX - pan.x) / r.width) * duration);
+      } else if (scrubbing.current) seek(mapAt(e.clientX, e.currentTarget));
+    },
+    onPointerUp() {
+      scrubbing.current = false;
+      setPan(null);
+    },
+    onPointerCancel() {
+      scrubbing.current = false;
+      setPan(null);
+    },
+  };
+  const spanLabel = `${span >= 10 ? Math.round(span) : span.toFixed(1)} s`;
   /** Tempo na água: de cada entrada até à saída seguinte do mesmo lado. */
   const water = (list: EventMark[]) =>
     list.flatMap((e, i) =>
@@ -533,7 +634,57 @@ export default function Timeline({
           </>
         )}
       </div>
-      <div className="lanes">
+      <div className="dock-map">
+        <div className="lane-label">
+          <button
+            className="lane-tool"
+            title="Afastar (−)"
+            aria-label="Afastar a linha do tempo"
+            disabled={unavailable || span >= duration - 1e-3}
+            onClick={() => zoomBy(1 / 0.6)}
+          >
+            <ZoomOut size={13} />
+          </button>
+          <button
+            className="lane-tool"
+            title="Aproximar (+, ou roda do rato)"
+            aria-label="Aproximar a linha do tempo"
+            disabled={unavailable || span <= Math.min(1, duration) + 1e-3}
+            onClick={() => zoomBy(0.6)}
+          >
+            <ZoomIn size={13} />
+          </button>
+          <small title="O que as pistas mostram">{spanLabel}</small>
+        </div>
+        <div
+          className="map-track"
+          title="O vídeo inteiro: carrega para saltar, arrasta a janela para ver outra parte"
+          {...map}
+        >
+          <span className="map-segment" style={{ left: whole(s0), width: whole(s1 - s0) }} />
+          {transitions.map(([a, b]) => (
+            <span
+              key={`${a}-${b}`}
+              className="map-transition"
+              style={{ left: whole(a), width: whole(b - a) }}
+            />
+          ))}
+          {p.events
+            .filter((e) => e.review !== 'skipped')
+            .map((e) => (
+              <span key={e.id} className={`map-tick side-${e.side}`} style={{ left: whole(e.t) }} />
+            ))}
+          {hasVideo && <span className="map-playhead" style={{ left: whole(time) }} />}
+          {span < duration - 1e-3 && (
+            <span
+              className="map-window"
+              data-held={pan ? true : undefined}
+              style={{ left: whole(view[0]), width: whole(span) }}
+            />
+          )}
+        </div>
+      </div>
+      <div className="lanes" ref={lanesRef}>
         <Lane
           name="Trecho"
           className="lane-ruler"
@@ -541,19 +692,6 @@ export default function Timeline({
             <small className={segLength > 120 ? 'warn-text' : undefined}>
               {segLength.toFixed(1)} s
             </small>
-          }
-          tool={
-            canZoom && (
-              <button
-                className="lane-tool"
-                aria-pressed={zoomed}
-                title={zoomed ? 'Ver o vídeo inteiro' : 'Aproximar ao trecho'}
-                aria-label={zoomed ? 'Ver o vídeo inteiro' : 'Aproximar ao trecho'}
-                onClick={() => setZoomPref(!zoomed)}
-              >
-                {zoomed ? <ZoomOut size={13} /> : <ZoomIn size={13} />}
-              </button>
-            )
           }
           track={track}
         >
@@ -570,8 +708,9 @@ export default function Timeline({
               style={{ left: at(a), width: `max(2px, ${width(a, b)})` }}
             />
           ))}
-          <div {...grip('in')} />
-          <div {...grip('out')} />
+          {/* Uma ponta fora da janela não se mostra colada à borda. */}
+          {(seen(s0) || held?.edge === 'in') && <div {...grip('in')} />}
+          {(seen(s1) || held?.edge === 'out') && <div {...grip('out')} />}
         </Lane>
         {(['Left', 'Right'] as const).map((s) => {
           const list = events.filter((e) => e.side === s);
@@ -702,7 +841,6 @@ export default function Timeline({
 function Lane({
   name,
   note,
-  tool,
   empty,
   className = '',
   track,
@@ -710,7 +848,6 @@ function Lane({
 }: {
   name: string;
   note?: React.ReactNode;
-  tool?: React.ReactNode;
   /** Sem nada ainda: a pista fica, esbatida, para a doca não mudar de altura. */
   empty?: boolean;
   className?: string;
@@ -722,7 +859,6 @@ function Lane({
       <div className="lane-label">
         <span>{name}</span>
         {note}
-        {tool}
       </div>
       <div className="lane-track" {...track}>
         {children}
