@@ -141,17 +141,23 @@ export default function Timeline({
   /**
    * Onde fica uma marcação levada para `t`: no fotograma do trecho fora das
    * transições mais perto dali (num empate, do lado de onde vinha). Sem
-   * nenhum livre, fica onde estava.
+   * nenhum livre, fica onde estava. Com `step`, anda fotograma a fotograma
+   * nesse sentido e salta as transições que encontrar.
    */
-  const markAt = (t: number, from: number) => {
+  const markAt = (t: number, from: number, step?: 1 | -1) => {
     const lo = Math.ceil(s0 * fps - 1e-6);
     const hi = Math.floor(Math.min(s1, p.video.duration - 1 / fps) * fps + 1e-6);
     if (!(hi >= lo)) return from;
+    const free = (f: number) => f >= lo && f <= hi && !transitionAt(f / fps, transitions);
+    if (step) {
+      for (let f = Math.round(from * fps) + step; f >= lo && f <= hi; f += step)
+        if (free(f)) return f / fps;
+      return from;
+    }
     const f0 = clamp(Math.round(t * fps), lo, hi);
     const back = from < t ? -1 : 1;
     for (let k = 0; k <= hi - lo; k++)
-      for (const f of [f0 + back * k, f0 - back * k])
-        if (f >= lo && f <= hi && !transitionAt(f / fps, transitions)) return f / fps;
+      for (const f of [f0 + back * k, f0 - back * k]) if (free(f)) return f / fps;
     return from;
   };
 
@@ -291,6 +297,7 @@ export default function Timeline({
     .map((e) => (drag?.moved && drag.id === e.id ? { ...e, t: drag.t } : e))
     .filter((e) => e.review !== 'skipped' && e.t >= s0 && e.t <= s1)
     .sort((a, b) => a.t - b.t);
+  const order = new Map(p.events.map((e, i) => [e.id, i]));
   const active =
     picked?.kind === 'event' ? events.find((e) => e.id === picked.id) : undefined;
   const pickedRange =
@@ -308,9 +315,9 @@ export default function Timeline({
         .map((x) => (x.id === e.id ? { ...x, ...change } : x))
         .sort((a, b) => a.t - b.t),
     });
-  const move = (t: number) => {
+  const move = (t: number, step?: 1 | -1) => {
     if (!active) return;
-    const next = markAt(t, active.t);
+    const next = markAt(t, active.t, step);
     patch(active, { t: next, source: 'manual', review: 'suggested' });
     seek(next);
   };
@@ -592,7 +599,7 @@ export default function Timeline({
                 <button
                   disabled={unavailable || active.t <= s0}
                   title="Recuar a marcação um fotograma"
-                  onClick={() => move(active.t - 1 / fps)}
+                  onClick={() => move(active.t, -1)}
                 >
                   −1 fotograma
                 </button>
@@ -602,7 +609,7 @@ export default function Timeline({
                     active.t >= Math.min(s1, p.video.duration - 1 / fps)
                   }
                   title="Avançar a marcação um fotograma"
-                  onClick={() => move(active.t + 1 / fps)}
+                  onClick={() => move(active.t, 1)}
                 >
                   +1 fotograma
                 </button>
@@ -846,7 +853,12 @@ export default function Timeline({
                 />
               ))}
               {/* A que se arrasta fica sempre, mesmo encostada à ponta da janela. */}
-              {list.filter((e) => seen(e.t) || drag?.id === e.id).map((e) => (
+              {/* Pela ordem gravada, não pela do arrasto: mudar o botão de sítio
+                  no DOM a meio do gesto fazia-o perder o rato. */}
+              {list
+                .filter((e) => seen(e.t) || drag?.id === e.id)
+                .sort((a, b) => order.get(a.id)! - order.get(b.id)!)
+                .map((e) => (
                 <button
                   key={e.id}
                   className={`marker marker-${e.kind === 'Catch' ? 'entry' : 'exit'}`}
