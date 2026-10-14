@@ -14,6 +14,7 @@ import {
   paddleAngle,
   emptyProject,
   parseProject,
+  mergeRanges,
 } from '../lib/motion.ts';
 const pt = (x = 0, y = 0, v = 1) => ({ x, y, v });
 const pose = (x = 0) => Array.from({ length: 33 }, () => pt(x));
@@ -168,4 +169,19 @@ test('project JSON roundtrip preserves edits and validates untrusted input', () 
     parseProject({ ...p, target: [{ t: 1, points: { constructor: pt() } }] }),
   );
   assert.throws(() => parseProject({ ...p, video: { ...p.video, fps: 0 } }));
+});
+
+test('mergeRanges absorbs analyser cuts into existing transitions', () => {
+  const hand = [[20.3, 20.6], [9, 9.1]];
+  const cuts = [[9.01, 9.08], [13.75, 13.81], [20.35, 20.42], [20.6, 20.7]];
+  const merged = mergeRanges(hand, cuts);
+  assert.deepEqual(merged, [[9, 9.1], [13.75, 13.81], [20.3, 20.7]]);
+  // Re-analysing returns the same cuts: nothing new appears.
+  assert.deepEqual(mergeRanges(merged, cuts), merged);
+  assert.deepEqual(hand, [[20.3, 20.6], [9, 9.1]]);
+  const p = emptyProject();
+  p.video = { ...p.video, duration: 30 };
+  p.segment = [0, 30];
+  p.transitions = merged;
+  assert.deepEqual(parseProject(JSON.parse(JSON.stringify(p))).transitions, merged);
 });

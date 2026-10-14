@@ -296,6 +296,16 @@ export function paddleAngle(
     h,
   );
 }
+/** Sorted union of time ranges; overlapping or touching ranges become one. */
+export function mergeRanges(...lists: [number, number][][]): [number, number][] {
+  const merged: [number, number][] = [];
+  for (const r of lists.flat().sort((a, b) => a[0] - b[0])) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([r[0], r[1]]);
+  }
+  return merged;
+}
 export function emptyProject(): Project {
   return {
     version: 2,

@@ -80,6 +80,7 @@ import {
   paddleAngle,
   emptyProject,
   parseProject,
+  mergeRanges,
   type Project,
   type Point,
   type Frame,
@@ -93,6 +94,8 @@ type AnalysisResult = {
   detected: number;
   total: number;
   sampleFps: number;
+  /** Cortes de câmara detetados; ausente em analisadores antigos. */
+  cuts?: [number, number][];
 };
 type JobResponse = {
   id: string;
@@ -812,8 +815,14 @@ export default function Studio() {
           }
           const r = data.result;
           const old = current.current;
+          // Cortes de câmara encontrados pelo analisador passam a transições
+          // no mesmo passo, para um só Ctrl+Z desfazer tudo.
+          const cuts = r.cuts || [];
+          const transitions = mergeRanges(old.transitions || [], cuts);
+          const fits = transitions.length <= 100;
           commit({
             ...old,
+            ...(cuts.length && fits ? { transitions } : {}),
             version: 2,
             video: { ...old.video, fps: r.fps },
             frames: [
@@ -830,8 +839,15 @@ export default function Studio() {
           setTime(firstMoment);
           // A preparação já não é precisa: o painel fecha e o vídeo cresce.
           setPanel((x) => (x === 'setup' ? null : x));
+          const n = cuts.length;
           say(
-            'Análise pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.',
+            !n
+              ? 'Análise pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.'
+              : !fits
+                ? `Análise pronta. Encontrei ${n} ${n === 1 ? 'corte' : 'cortes'} de câmara, mas já não cabem mais transições.`
+                : n === 1
+                  ? 'Análise pronta. Encontrei 1 corte de câmara e marquei-o como transição.'
+                  : `Análise pronta. Encontrei ${n} cortes de câmara e marquei-os como transições.`,
             r.detected > r.total * 0.6 ? 'ok' : 'warn',
           );
           break;
@@ -1098,17 +1114,7 @@ export default function Studio() {
       setTransitionStart(time);
       return;
     }
-    const ranges: [number, number][] = [
-      ...(p.transitions || []),
-      [transitionStart, time],
-    ];
-    ranges.sort((a, b) => a[0] - b[0]);
-    const merged: [number, number][] = [];
-    for (const r of ranges) {
-      const last = merged[merged.length - 1];
-      if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
-      else merged.push([...r]);
-    }
+    const merged = mergeRanges(p.transitions || [], [[transitionStart, time]]);
     if (merged.length > 100) {
       say('Máximo de 100 transições.', 'warn');
       return;
