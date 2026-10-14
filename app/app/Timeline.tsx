@@ -315,10 +315,13 @@ export default function Timeline({
         .map((x) => (x.id === e.id ? { ...x, ...change } : x))
         .sort((a, b) => a.t - b.t),
     });
+  /** Uma sugestão da análise lembra-se de onde vinha, mesmo depois de mudada. */
+  const origin = (e: EventMark) =>
+    e.source === 'automatic' && e.originalT === undefined ? { originalT: e.t } : {};
   const move = (t: number, step?: 1 | -1) => {
     if (!active) return;
     const next = markAt(t, active.t, step);
-    patch(active, { t: next, source: 'manual', review: 'suggested' });
+    patch(active, { t: next, source: 'manual', review: 'suggested', ...origin(active) });
     seek(next);
   };
   /**
@@ -349,7 +352,7 @@ export default function Timeline({
       dragged.current = true;
       const original = p.events.find((x) => x.id === e.id);
       if (keep && original && Math.abs(d.t - d.from) > 1e-6)
-        patch(original, { t: d.t, source: 'manual', review: 'confirmed' });
+        patch(original, { t: d.t, source: 'manual', review: 'confirmed', ...origin(original) });
       setPicked({ kind: 'event', id: e.id });
       setPlaced(null);
       setAdjusting(false);
