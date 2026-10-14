@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Flag, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronsDown, ChevronsUp, Flag, X, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   JOINTS,
   clamp,
@@ -108,6 +108,8 @@ export default function Timeline({
 }: Props) {
   const [picked, setPicked] = useState<Picked>(null);
   const [adjusting, setAdjusting] = useState(false);
+  // Recolhida: só o transporte e o trecho, para o vídeo crescer.
+  const [folded, setFolded] = useState(false);
   // A última marcação posta: fica escrita na linha em vez de abrir a marcação,
   // para se poderem pôr várias seguidas.
   const [placed, setPlaced] = useState<EventMark | null>(null);
@@ -550,7 +552,16 @@ export default function Timeline({
   const outside = !hasVideo || !inSegment || inTransition;
 
   return (
-    <section className="dock" aria-label="Linha do tempo">
+    <section className="dock" aria-label="Linha do tempo" data-folded={folded || undefined}>
+      <button
+        className="fold"
+        aria-expanded={!folded}
+        title={folded ? 'Mostrar as pistas' : 'Esconder as pistas, para o vídeo crescer'}
+        onClick={() => setFolded(!folded)}
+      >
+        {folded ? <ChevronsUp size={14} /> : <ChevronsDown size={14} />}
+        <span className="sr-only">{folded ? 'Mostrar as pistas' : 'Esconder as pistas'}</span>
+      </button>
       <div className="dock-head">{children}</div>
       <div className="dock-context" aria-live="polite">
         {active ? (
