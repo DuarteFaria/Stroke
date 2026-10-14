@@ -111,9 +111,11 @@ export function visibility(
   playing = false,
   transitions: [number, number][] = [],
 ): number {
+  // Exactly the same shot, no slack: a cut is often a single frame.
   if (d.whole) {
-    const [a, b] = shotAt(d.t, transitions);
-    return time >= a - EARLY && time <= b + EARLY ? 1 : 0;
+    const [a, b] = shotAt(d.t, transitions),
+      [c, e] = shotAt(time, transitions);
+    return a === c && b === e ? 1 : 0;
   }
   const dt = time - d.t;
   if (dt < -EARLY || dt > HOLD) return 0;

@@ -4,6 +4,7 @@ import { Flag, X, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   JOINTS,
   clamp,
+  removeTransition,
   shotAt,
   transitionAt,
   type EventMark,
@@ -123,6 +124,7 @@ export default function Timeline({
     t: number;
     moved: boolean;
   } | null>(null);
+  const dragRef = useRef<typeof drag>(null);
   // Largar depois de arrastar não conta como carregar na marcação.
   const dragged = useRef(false);
   const scrubbing = useRef(false);
@@ -136,16 +138,21 @@ export default function Timeline({
   const transitions = p.transitions || [];
   // Numa transição não se rema: não há pagaiadas para marcar.
   const inTransition = !!transitionAt(time, transitions);
-  /** Uma marcação não fica numa transição: encosta à ponta de onde vinha. */
-  const clear = (t: number, from: number) => {
-    const r = transitionAt(t, transitions);
-    if (!r) return t;
-    return from <= r[0] ? r[0] - 1 / fps : r[1] + 1 / fps;
-  };
-  /** Onde fica uma marcação posta em `t`: no trecho, num fotograma, fora das transições. */
+  /**
+   * Onde fica uma marcação levada para `t`: no fotograma do trecho fora das
+   * transições mais perto dali (num empate, do lado de onde vinha). Sem
+   * nenhum livre, fica onde estava.
+   */
   const markAt = (t: number, from: number) => {
-    const hi = Math.min(s1, p.video.duration - 1 / fps);
-    return clamp(clear(clamp(Math.round(t * fps) / fps, s0, hi), from), s0, hi);
+    const lo = Math.ceil(s0 * fps - 1e-6);
+    const hi = Math.floor(Math.min(s1, p.video.duration - 1 / fps) * fps + 1e-6);
+    if (!(hi >= lo)) return from;
+    const f0 = clamp(Math.round(t * fps), lo, hi);
+    const back = from < t ? -1 : 1;
+    for (let k = 0; k <= hi - lo; k++)
+      for (const f of [f0 + back * k, f0 - back * k])
+        if (f >= lo && f <= hi && !transitionAt(f / fps, transitions)) return f / fps;
+    return from;
   };
 
   // ------------------------------------------------------------------ axis
@@ -308,51 +315,59 @@ export default function Timeline({
     seek(next);
   };
   /**
-   * Tirar uma marcação. Uma sugestão automática fica guardada como
-   * ignorada, para voltar a analisar não a trazer de volta.
+   * Tirar uma marcação. Uma que veio da análise (mesmo já ajustada) fica
+   * guardada como ignorada, para voltar a analisar não a trazer de volta.
    */
   const removeMark = (e: EventMark) =>
     commit({
       ...p,
       events:
-        e.source === 'automatic'
+        e.source === 'automatic' || e.originalT !== undefined
           ? p.events.map((x) => (x.id === e.id ? { ...x, review: 'skipped' as const } : x))
           : p.events.filter((x) => x.id !== e.id),
     });
   /** Arrastar uma marcação na pista muda o seu tempo; o vídeo vai mostrando onde. */
-  const draggable = (e: EventMark) => ({
-    onPointerDown(ev: React.PointerEvent<HTMLButtonElement>) {
-      if (unavailable || ev.button !== 0) return;
-      ev.stopPropagation();
-      ev.currentTarget.setPointerCapture(ev.pointerId);
-      dragged.current = false;
-      setDrag({ id: e.id, x: ev.clientX, from: e.t, t: e.t, moved: false });
-    },
-    onPointerMove(ev: React.PointerEvent<HTMLButtonElement>) {
-      if (drag?.id !== e.id || (!drag.moved && Math.abs(ev.clientX - drag.x) < 4)) return;
-      const t = markAt(timeAt(ev.clientX, ev.currentTarget.parentElement!), drag.from);
-      if (!drag.moved) setHeld({ edge: 'mark', view });
-      if (t !== drag.t || !drag.moved) seek(t);
-      setDrag({ ...drag, t, moved: true });
-    },
-    onPointerUp() {
-      if (drag?.id !== e.id) return;
-      setDrag(null);
+  const draggable = (e: EventMark) => {
+    const follow = (next: NonNullable<typeof drag> | null) => {
+      dragRef.current = next;
+      setDrag(next);
+    };
+    // Acaba uma só vez, mesmo que o largar e a perda da captura cheguem os dois.
+    const finish = (keep: boolean) => {
+      const d = dragRef.current;
+      if (d?.id !== e.id) return;
+      follow(null);
       setHeld(null);
-      if (!drag.moved) return;
+      if (!d.moved) return;
       dragged.current = true;
       const original = p.events.find((x) => x.id === e.id);
-      if (original && Math.abs(drag.t - drag.from) > 1e-6)
-        patch(original, { t: drag.t, source: 'manual', review: 'confirmed' });
+      if (keep && original && Math.abs(d.t - d.from) > 1e-6)
+        patch(original, { t: d.t, source: 'manual', review: 'confirmed' });
       setPicked({ kind: 'event', id: e.id });
       setPlaced(null);
       setAdjusting(false);
-    },
-    onPointerCancel() {
-      setDrag(null);
-      setHeld(null);
-    },
-  });
+    };
+    return {
+      onPointerDown(ev: React.PointerEvent<HTMLButtonElement>) {
+        if (unavailable || ev.button !== 0) return;
+        ev.stopPropagation();
+        ev.currentTarget.setPointerCapture(ev.pointerId);
+        dragged.current = false;
+        follow({ id: e.id, x: ev.clientX, from: e.t, t: e.t, moved: false });
+      },
+      onPointerMove(ev: React.PointerEvent<HTMLButtonElement>) {
+        const d = dragRef.current;
+        if (d?.id !== e.id || (!d.moved && Math.abs(ev.clientX - d.x) < 4)) return;
+        const t = markAt(timeAt(ev.clientX, ev.currentTarget.parentElement!), d.from);
+        if (!d.moved) setHeld({ edge: 'mark', view });
+        if (t !== d.t || !d.moved) seek(t);
+        follow({ ...d, t, moved: true });
+      },
+      onPointerUp: () => finish(true),
+      onLostPointerCapture: () => finish(true),
+      onPointerCancel: () => finish(false),
+    };
+  };
   /** A seguinte à última marcação antes do cursor, pela ordem de MARKS. */
   const prev = events.filter((e) => e.t <= time + 0.5 / fps).at(-1);
   const next = prev
@@ -408,7 +423,7 @@ export default function Timeline({
       const last = placed && p.events.find((x) => x.id === placed.id && x.review !== 'skipped');
       if (active) removeMark(active);
       else if (pickedRange && picked?.kind === 'transition')
-        commit({ ...p, transitions: transitions.filter((_, j) => j !== picked.index) });
+        commit(removeTransition(p, picked.index));
       else if (last) {
         removeMark(last);
         setPlaced(null);
@@ -660,12 +675,7 @@ export default function Timeline({
               disabled={busy}
               title="Remover a transição (Delete)"
               onClick={() => {
-                commit({
-                  ...p,
-                  transitions: transitions.filter(
-                    (_, j) => j !== (picked as { index: number }).index,
-                  ),
-                });
+                commit(removeTransition(p, (picked as { index: number }).index));
                 close();
               }}
             >
@@ -835,7 +845,8 @@ export default function Timeline({
                   style={{ left: at(a), width: width(a, b) }}
                 />
               ))}
-              {list.filter((e) => seen(e.t)).map((e) => (
+              {/* A que se arrasta fica sempre, mesmo encostada à ponta da janela. */}
+              {list.filter((e) => seen(e.t) || drag?.id === e.id).map((e) => (
                 <button
                   key={e.id}
                   className={`marker marker-${e.kind === 'Catch' ? 'entry' : 'exit'}`}

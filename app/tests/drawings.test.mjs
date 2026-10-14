@@ -94,6 +94,11 @@ test('a whole-shot drawing ends at the next camera cut or transition', () => {
   assert.equal(visibility(d, 9, false, cuts), 0);
   assert.equal(visibility(arrow({ whole: true, t: 5 }), 6, false, cuts), 1);
   assert.equal(visibility(arrow({ whole: true, t: 5 }), 2, false, cuts), 0);
+  // A one-frame cut at 60 fps: neither shot shows on the other's frames.
+  const cut = [[4, 4 + 1 / 60]];
+  assert.equal(visibility(arrow({ whole: true, t: 3 }), 4 + 2 / 60, false, cut), 0);
+  assert.equal(visibility(arrow({ whole: true, t: 5 }), 4 - 1 / 60, false, cut), 0);
+  assert.equal(visibility(arrow({ whole: true, t: 3 }), 4 - 1 / 60, false, cut), 1);
 });
 test('angles are measured on the picture, not in normalised units', () => {
   assert.equal(Math.round(angleDeg({ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, 100, 100)), 90);

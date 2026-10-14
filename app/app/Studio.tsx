@@ -81,6 +81,7 @@ import {
   emptyProject,
   parseProject,
   mergeRanges,
+  unbreak,
   type Project,
   type Point,
   type Frame,
@@ -827,8 +828,12 @@ export default function Studio() {
           const r = data.result;
           const old = current.current;
           // Cortes de câmara encontrados pelo analisador passam a transições
-          // no mesmo passo, para um só Ctrl+Z desfazer tudo.
-          const cuts = r.cuts || [];
+          // no mesmo passo, para um só Ctrl+Z desfazer tudo. Os que o
+          // treinador já tirou não voltam.
+          const rejected = old.rejectedCuts || [];
+          const cuts = (r.cuts || []).filter(
+            ([a, b]) => !rejected.some(([c, d]) => a <= d && b >= c),
+          );
           const transitions = mergeRanges(old.transitions || [], cuts);
           const fits = transitions.length <= 100;
           commit({
@@ -838,7 +843,7 @@ export default function Studio() {
             video: { ...old.video, fps: r.fps },
             frames: [
               ...old.frames.filter((f) => f.t < r.start || f.t > r.end),
-              ...r.frames,
+              ...unbreak(r.frames, rejected),
             ].sort((a, b) => a.t - b.t),
             corrections: old.corrections.filter(
               (k) => k.t < r.start || k.t > r.end,

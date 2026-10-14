@@ -124,6 +124,8 @@ export type Project = {
   followAthlete?: boolean;
   analysisQuality?: 'standard' | 'detailed';
   transitions?: [number, number][];
+  /** Ranges the coach removed as transitions: analysing again does not cut there. */
+  rejectedCuts?: [number, number][];
   frames: Frame[];
   corrections: Key[];
   target: Key[];
@@ -325,6 +327,27 @@ export function shotAt(
   }
   return [start, end];
 }
+/** Analysis frames inside `ranges` no longer restart the stroke count there. */
+export const unbreak = (frames: Frame[], ranges: [number, number][]) =>
+  frames.map((f) =>
+    f.breakBefore && !f.transition && ranges.some(([a, b]) => f.t >= a - 1e-6 && f.t <= b + 1e-6)
+      ? (({ breakBefore: _, ...rest }) => rest)(f)
+      : f,
+  );
+/**
+ * Remove a transition. A camera cut stops splitting strokes at once, and is
+ * remembered so that analysing again does not bring it back.
+ */
+export function removeTransition(p: Project, index: number): Project {
+  const r = p.transitions?.[index];
+  if (!r) return p;
+  return {
+    ...p,
+    transitions: p.transitions!.filter((_, j) => j !== index),
+    rejectedCuts: mergeRanges(p.rejectedCuts || [], [r]).slice(-200),
+    frames: unbreak(p.frames, [r]),
+  };
+}
 /** The transition `t` falls in, if any. */
 export const transitionAt = (t: number, transitions: [number, number][] = []) =>
   transitions.find(([a, b]) => t >= a && t <= b);
@@ -394,6 +417,9 @@ export function parseProject(value: unknown): Project {
   if (p.transitions !== undefined && (!Array.isArray(p.transitions) || p.transitions.length > 100 ||
     p.transitions.some((r,i) => !Array.isArray(r) || r.length !== 2 || !r.every(validTime) ||
       r[1] <= r[0] || (i > 0 && r[0] < p.transitions![i-1][1])))) return fail();
+  if (p.rejectedCuts !== undefined && (!Array.isArray(p.rejectedCuts) || p.rejectedCuts.length > 200 ||
+    p.rejectedCuts.some(r => !Array.isArray(r) || r.length !== 2 || !r.every(validTime) || r[1] < r[0])))
+    return fail();
   if (
     !Array.isArray(p.frames) ||
     p.frames.length > 20000 ||

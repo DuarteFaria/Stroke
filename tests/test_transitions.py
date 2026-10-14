@@ -87,6 +87,7 @@ def test_cut_inside_user_transition_is_not_duplicated(monkeypatch):
     result=analyze_frames(monkeypatch,images,transitions=[[.45,.65]])
     assert result['cuts']==[]
     assert [round(f['t'],1) for f in result['frames'] if f.get('breakBefore')]==[.7]
-    # A hand-marked range that just misses the cut still absorbs it.
+    # A hand-marked range that just misses the cut grows to cover it, so
+    # the shot really ends at the cut.
     result=analyze_frames(monkeypatch,images,transitions=[[.7,.9]])
-    assert result['cuts']==[] and result['frames'][6].get('breakBefore')
+    assert result['cuts']==[[pytest.approx(.5),pytest.approx(.9)]] and result['frames'][6].get('breakBefore')

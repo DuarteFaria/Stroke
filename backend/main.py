@@ -132,13 +132,17 @@ def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=Non
                 if previous_signature is not None:
                     distance=cv2.compareHist(previous_signature,signature,cv2.HISTCMP_BHATTACHARYYA)
                     # A detected cut restarts tracking like a crossed transition.
-                    # Next to a user transition it only restarts: the user's
-                    # hand-marked range already stands for it.
+                    # Inside a user transition it only restarts: the user's
+                    # range already stands for it. Just beside one, the cut
+                    # reaches over to it, so the two become a single range.
                     if not reset_pending and is_cut(distance,recent) and t>previous_t:
                         reset_pending=True
-                        if not any(a-CUT_MERGE<=t and previous_t<=b+CUT_MERGE for a,b in transitions):
-                            if cuts and previous_t-cuts[-1][1]<=CUT_MERGE: cuts[-1][1]=t
-                            else: cuts.append([previous_t,t])
+                        if not any(a<=t and previous_t<=b for a,b in transitions):
+                            cut=[previous_t,t]
+                            for a,b in transitions:
+                                if a-CUT_MERGE<=t and previous_t<=b+CUT_MERGE: cut=[min(cut[0],a),max(cut[1],b)]
+                            if cuts and cut[0]-cuts[-1][1]<=CUT_MERGE: cuts[-1][1]=max(cuts[-1][1],cut[1])
+                            else: cuts.append(cut)
                     recent.append(distance)
                 previous_signature=signature
                 if excluded:
