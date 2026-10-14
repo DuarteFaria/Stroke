@@ -247,6 +247,10 @@ function Toggle({
     </label>
   );
 }
+/** O browser diz que fotograma pintou (Chrome, Edge, Safari, Electron). */
+const framed =
+  typeof HTMLVideoElement !== 'undefined' &&
+  'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 export default function Studio() {
   const [p, setP] = useState<Project>(emptyProject),
     [src, setVideoSrc] = useState(''),
@@ -597,6 +601,21 @@ export default function Studio() {
   useEffect(() => {
     if (video.current) video.current.playbackRate = Number(speed);
   }, [speed, src]);
+  // A reproduzir, o tempo é o do fotograma que está no ecrã, não o do relógio
+  // do vídeo: se o descodificador se atrasa, a imagem congela mas o relógio
+  // continua, e o esqueleto fugia para um momento que ainda não se vê.
+  useEffect(() => {
+    const v = video.current;
+    if (!v || !src || !framed) return;
+    let id = 0;
+    const onFrame: VideoFrameRequestCallback = (_, frame) => {
+      // O último fotograma pode dizer-se um pouco depois do fim do vídeo.
+      if (!v.paused) setTime(Math.min(frame.mediaTime, v.duration || Infinity));
+      id = v.requestVideoFrameCallback(onFrame);
+    };
+    id = v.requestVideoFrameCallback(onFrame);
+    return () => v.cancelVideoFrameCallback(id);
+  }, [src]);
   useEffect(() => {
     let handle = 0;
     const tick = () => {
@@ -611,7 +630,7 @@ export default function Studio() {
             v.currentTime = b;
           }
         }
-        setTime(v.currentTime);
+        if (!framed || v.paused) setTime(v.currentTime);
       }
       handle = requestAnimationFrame(tick);
     };
@@ -1588,7 +1607,9 @@ export default function Studio() {
                 onLoadedMetadata={metadata}
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
-                onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+                onTimeUpdate={(e) => {
+                  if (!framed || e.currentTarget.paused) setTime(e.currentTarget.currentTime);
+                }}
                 onError={() =>
                   say('Não deu para ler o vídeo. Tenta MP4 H.264.', 'warn')
                 }
