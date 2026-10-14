@@ -1,8 +1,11 @@
 'use client';
-import StrokeReview, { TimingSummary } from './StrokeReview';
+import { TimingSummary } from './StrokeReview';
 import StrokeComparison from './StrokeComparison';
 import Pose3D from './Pose3D';
+import { useDrawing, DrawingLayer, DrawingToolbar } from './Drawing';
 import ThemeToggle from './ThemeToggle';
+import Timeline, { fmt, type EditMode } from './Timeline';
+import Shortcuts from './Shortcuts';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
 import {
   useState,
@@ -24,17 +27,23 @@ import {
   Redo2,
   ScanLine,
   ChartNoAxesColumn,
-  Pencil,
   Plus,
   X,
-  Flag,
   Info,
   CircleCheck,
   TriangleAlert,
   LoaderCircle,
   Check,
   Keyboard,
-  ChevronRight,
+  PersonStanding,
+  Ruler,
+  Target,
+  Rotate3d,
+  Columns2,
+  PanelRightClose,
+  Brush,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -71,6 +80,8 @@ import {
   paddleAngle,
   emptyProject,
   parseProject,
+  mergeRanges,
+  unbreak,
   type Project,
   type Point,
   type Frame,
@@ -84,6 +95,8 @@ type AnalysisResult = {
   detected: number;
   total: number;
   sampleFps: number;
+  /** Cortes de câmara detetados; ausente em analisadores antigos. */
+  cuts?: [number, number][];
 };
 type JobResponse = {
   id: string;
@@ -159,16 +172,19 @@ const PADDLE_POINTS: [string, string][] = [
   ['r1', 'Referência 1'],
   ['r2', 'Referência 2'],
 ];
-/** Os três botões escolhem o que se arrasta por cima do vídeo. */
-const MODES: Record<string, { label: string; hud: string }> = {
-  correct: { label: 'Corpo', hud: 'Arrasta os pontos' },
-  paddle: { label: 'Pagaia', hud: 'Carrega para pôr um ponto' },
-  target: { label: 'Ideal', hud: 'Arrasta o esqueleto laranja' },
+/** As ferramentas da barra escolhem o que se arrasta por cima do vídeo. */
+const MODES: Record<EditMode, { label: string; hud: string; icon: typeof Ruler }> = {
+  correct: { label: 'Corpo', hud: 'Arrasta os pontos', icon: PersonStanding },
+  paddle: { label: 'Pagaia', hud: 'Carrega para pôr um ponto', icon: Ruler },
+  target: { label: 'Ideal', hud: 'Arrasta o esqueleto laranja', icon: Target },
 };
-const fmt = (t: number) =>
-  `${Math.floor(t / 60)
-    .toString()
-    .padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+/** O que o painel à direita mostra; null fecha-o e o vídeo cresce. */
+type Panel = 'setup' | 'tool' | 'summary' | 'compare' | '3d' | null;
+const VIEWS: [Exclude<Panel, 'setup' | 'tool' | null>, string, typeof Ruler][] = [
+  ['summary', 'Resumo', ChartNoAxesColumn],
+  ['compare', 'Comparar', Columns2],
+  ['3d', 'Vista 3D', Rotate3d],
+];
 const deg = (v: number | null) => (v === null ? '—' : `${v.toFixed(1)}°`);
 const pointName = (id: string) =>
   PADDLE_POINTS.find((x) => x[0] === id.replace(/^p:/, ''))?.[1] ||
@@ -211,15 +227,17 @@ function Toggle({
   checked,
   onChange,
   disabled,
+  title,
   children,
 }: {
   checked: boolean;
   onChange: (x: boolean) => void;
   disabled?: boolean;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="toggle" data-disabled={disabled || undefined}>
+    <label className="toggle" data-disabled={disabled || undefined} title={title}>
       <Checkbox
         checked={checked}
         disabled={disabled}
@@ -229,6 +247,10 @@ function Toggle({
     </label>
   );
 }
+/** O browser diz que fotograma pintou (Chrome, Edge, Safari, Electron). */
+const framed =
+  typeof HTMLVideoElement !== 'undefined' &&
+  'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 export default function Studio() {
   const [p, setP] = useState<Project>(emptyProject),
     [src, setVideoSrc] = useState(''),
@@ -237,12 +259,14 @@ export default function Studio() {
     [playing, setPlaying] = useState(false),
     [speed, setSpeed] = useState('0.5'),
     [loop, setLoop] = useState(true);
-  const [mode, setMode] = useState('correct'),
+  const [mode, setMode] = useState<EditMode>('correct'),
     [showRaw, setShowRaw] = useState(false),
     [showTarget, setShowTarget] = useState(true),
     [showPaths, setShowPaths] = useState(false),
+    [showAngles, setShowAngles] = useState(true),
     [selected, setSelected] = useState('15'),
     [placing, setPlacing] = useState<string | null>(null),
+    [keysOpen, setKeysOpen] = useState(false),
     [note, setNote] = useState<{ text: string; tone: Tone }>({
       text: '',
       tone: 'info',
@@ -271,12 +295,28 @@ export default function Studio() {
   const [relinking, setRelinking] = useState(false);
   const [selectingRegion, setSelectingRegion] = useState(false);
   const [regionDraft, setRegionDraft] = useState<Region | null>(null);
-  const [activePanel, setActivePanel] = useState<'edit' | 'summary' | 'compare' | '3d'>('edit');
+  const [panel, setPanel] = useState<Panel>(null);
+  // Apresentar: só o vídeo e o transporte, para mostrar ao atleta.
+  const [present, setPresent] = useState(false);
   const reviewLoop = useRef<[number, number] | null>(null);
+  // O último fotograma pintado e quantas vezes a imagem encravou: para dar
+  // com um descodificador parado.
+  const lastFrame = useRef({ at: 0, t: 0 });
+  const stalls = useRef(0);
+  // A velocidade de antes de rever uma pagaiada, para voltar a ela no fim.
+  const speedBefore = useRef<string | null>(null);
+  /** Acaba a revisão de uma pagaiada: deixa de repetir e repõe a velocidade. */
+  function endReview() {
+    reviewLoop.current = null;
+    if (speedBefore.current === null) return;
+    setSpeed(speedBefore.current);
+    speedBefore.current = null;
+  }
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
   function setSrc(value: string) {
-    reviewLoop.current = null;
+    stalls.current = 0;
+    endReview();
     setTransitionStart(null);
     setVideoSrc(value);
     setSelectingRegion(false);
@@ -318,7 +358,7 @@ export default function Studio() {
     setP(next);
   };
   function seek(t: number) {
-    reviewLoop.current = null;
+    endReview();
     const v = video.current;
     if (v && src && !busy) {
       v.pause();
@@ -410,6 +450,7 @@ export default function Studio() {
       setRedoCount(0);
       setDirty(false);
       setMode('correct');
+      setPanel(loaded.frames.length ? null : 'setup');
       say(`Projeto aberto. Escolhe o ficheiro ${loaded.video.name}.`, 'info');
       return loaded;
     } catch (e) {
@@ -500,14 +541,17 @@ export default function Studio() {
       setRedoCount(0);
       setDirty(false);
       setMode('correct');
+      setPanel('setup');
       say('Vídeo pronto. Escolhe Analisar a minha pagaiada.', 'ok');
     }
     return true;
   }
   function replayStroke(a: number, b: number) {
     if (!video.current || !src || busy || b <= a) return;
+    const before = speedBefore.current ?? speed;
     seek(a);
     reviewLoop.current = [a, b];
+    speedBefore.current = before;
     setSpeed('0.25');
     video.current.playbackRate = .25;
     void video.current.play().catch((error: unknown) => {
@@ -562,11 +606,40 @@ export default function Studio() {
   useEffect(() => {
     if (video.current) video.current.playbackRate = Number(speed);
   }, [speed, src]);
+  // A reproduzir, o tempo é o do fotograma que está no ecrã, não o do relógio
+  // do vídeo: se o descodificador se atrasa, a imagem congela mas o relógio
+  // continua, e o esqueleto fugia para um momento que ainda não se vê.
+  useEffect(() => {
+    const v = video.current;
+    if (!v || !src || !framed) return;
+    let id = 0;
+    const onFrame: VideoFrameRequestCallback = (_, frame) => {
+      lastFrame.current = { at: performance.now(), t: frame.mediaTime };
+      // O último fotograma pode dizer-se um pouco depois do fim do vídeo.
+      if (!v.paused) setTime(Math.min(frame.mediaTime, v.duration || Infinity));
+      id = v.requestVideoFrameCallback(onFrame);
+    };
+    id = v.requestVideoFrameCallback(onFrame);
+    return () => v.cancelVideoFrameCallback(id);
+  }, [src]);
+  const warnStall = useEffectEvent(() =>
+    say('O vídeo encrava a reproduzir neste computador. Se continuar, converte-o para MP4 (H.264).', 'warn'),
+  );
   useEffect(() => {
     let handle = 0;
     const tick = () => {
       const v = video.current;
       if (v && !v.paused) {
+        // Há descodificadores que param de dar fotogramas a meio (vídeos do
+        // YouTube, sem som): um segundo sem imagem nova, salta para onde o
+        // vídeo devia ir, o que os põe a andar outra vez.
+        const f = lastFrame.current, now = performance.now();
+        if (!framed || v.seeking) f.at = now;
+        else if (now - f.at > 1000) {
+          f.at = now;
+          v.currentTime = Math.max(v.currentTime, f.t + 1 / current.current.video.fps);
+          if (++stalls.current === 3) warnStall();
+        }
         const [a, b] = reviewLoop.current || current.current.segment;
         if (v.currentTime >= b) {
           if (loop || reviewLoop.current) {
@@ -576,7 +649,7 @@ export default function Studio() {
             v.currentTime = b;
           }
         }
-        setTime(v.currentTime);
+        if (!framed || v.paused) setTime(v.currentTime);
       }
       handle = requestAnimationFrame(tick);
     };
@@ -594,6 +667,7 @@ export default function Studio() {
     if (e.key === 'Escape') {
       setPlacing(null);
       hush();
+      if (present) togglePresent();
       return;
     }
     if (busy || el.closest('input,textarea,select,[contenteditable="true"]')) return;
@@ -607,25 +681,63 @@ export default function Studio() {
       redo();
       return;
     }
-    if (
-      el.closest(
-        'button,summary,[role="combobox"],[role="slider"],[role="dialog"]',
-      )
-    )
+    if (mod || e.altKey || el.closest('[role="dialog"]')) return;
+    const seg = current.current.segment;
+    if (e.key === '?') {
+      e.preventDefault();
+      setKeysOpen(true);
       return;
+    }
+    // Letras e números valem com o foco num botão: não o carregam.
+    if (e.key.toLowerCase() === 'f' && src) {
+      togglePresent();
+      return;
+    }
+    if (e.key.toLowerCase() === 'g' && src && !drawing.on) {
+      selectMode(mode === 'target' ? 'correct' : 'target');
+      return;
+    }
+    // I e O, como nos editores de vídeo: o trecho começa ou acaba aqui.
+    const k = e.key.toLowerCase();
+    if ((k === 'i' || k === 'o') && src && !drawing.on) {
+      const t = timeRef.current, edge = k === 'i' ? 'in' : 'out';
+      if (edge === 'in' ? t < seg[1] - 0.1 : t > seg[0] + 0.1)
+        commit(setSegment(edge, t, current.current));
+      return;
+    }
+    // Espaço e setas são do vídeo mesmo com o foco num botão que se carregou
+    // antes (Entrada, Repetir…); só os controlos que as usam ficam com elas.
+    if (el.closest('[role="combobox"],[role="listbox"],[role="menu"],[role="slider"]')) return;
     if (e.code === 'Space') {
       e.preventDefault();
       togglePlay();
     }
+    // Shift salta um segundo; sozinhas, as setas andam um fotograma.
+    const step = e.shiftKey ? 1 : 1 / current.current.video.fps;
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      seek(timeRef.current + 1 / current.current.video.fps);
+      seek(timeRef.current + step);
     }
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      seek(timeRef.current - 1 / current.current.video.fps);
+      seek(timeRef.current - step);
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      seek(seg[0]);
+    }
+    if (e.key === 'End') {
+      e.preventDefault();
+      seek(seg[1]);
     }
   });
+  useEffect(() => {
+    const fn = () => {
+      if (!document.fullscreenElement) setPresent(false);
+    };
+    document.addEventListener('fullscreenchange', fn);
+    return () => document.removeEventListener('fullscreenchange', fn);
+  }, []);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => keyboardEvent(event);
     window.addEventListener('keydown', handler);
@@ -709,7 +821,7 @@ export default function Studio() {
   async function analyze() {
     if (!file || busy || selectingRegion) return;
     video.current?.pause();
-    reviewLoop.current = null;
+    endReview();
     setBusy(true);
     setProgress(0);
     cancelled.current = false;
@@ -753,13 +865,23 @@ export default function Studio() {
           }
           const r = data.result;
           const old = current.current;
+          // Cortes de câmara encontrados pelo analisador passam a transições
+          // no mesmo passo, para um só Ctrl+Z desfazer tudo. Os que o
+          // treinador já tirou não voltam.
+          const rejected = old.rejectedCuts || [];
+          const cuts = (r.cuts || []).filter(
+            ([a, b]) => !rejected.some(([c, d]) => a <= d && b >= c),
+          );
+          const transitions = mergeRanges(old.transitions || [], cuts);
+          const fits = transitions.length <= 100;
           commit({
             ...old,
+            ...(cuts.length && fits ? { transitions } : {}),
             version: 2,
             video: { ...old.video, fps: r.fps },
             frames: [
               ...old.frames.filter((f) => f.t < r.start || f.t > r.end),
-              ...r.frames,
+              ...unbreak(r.frames, rejected),
             ].sort((a, b) => a.t - b.t),
             corrections: old.corrections.filter(
               (k) => k.t < r.start || k.t > r.end,
@@ -769,8 +891,17 @@ export default function Studio() {
           const firstMoment = r.start;
           if (video.current) video.current.currentTime = firstMoment;
           setTime(firstMoment);
+          // A preparação já não é precisa: o painel fecha e o vídeo cresce.
+          setPanel((x) => (x === 'setup' ? null : x));
+          const n = cuts.length;
           say(
-            'Análise pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.',
+            !n
+              ? 'Análise pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.'
+              : !fits
+                ? `Análise pronta. Encontrei ${n} ${n === 1 ? 'corte' : 'cortes'} de câmara, mas já não cabem mais transições.`
+                : n === 1
+                  ? 'Análise pronta. Encontrei 1 corte de câmara e marquei-o como transição.'
+                  : `Análise pronta. Encontrei ${n} cortes de câmara e marquei-os como transições.`,
             r.detected > r.total * 0.6 ? 'ok' : 'warn',
           );
           break;
@@ -827,6 +958,8 @@ export default function Studio() {
   );
   const reviewedPose = cautiousLegs(corrected, reviewFlags, time);
   const reviewedTarget = cautiousLegs(target, reviewFlags, time);
+  const drawing = useDrawing({ project: p, current, commit, time, playing,
+    pose: reviewedPose, enabled: !!src && !busy, askConfirm, say });
   const paddle = useMemo(() => keyAt(p.paddle, time, false), [p.paddle, time]);
   const targetPaddle = useMemo(() => {
     const delta = keyAt(p.targetPaddle, time);
@@ -844,7 +977,6 @@ export default function Studio() {
   const tracked = p.frames.length > 0;
   const duration = Math.max(0.01, p.video.duration);
   const segmentLength = p.segment[1] - p.segment[0];
-  const pct = (t: number) => (clamp(t, 0, duration) / duration) * 100;
   const bands = useMemo(() => {
     const out: [number, number][] = [];
     for (const f of p.frames) {
@@ -995,38 +1127,96 @@ export default function Studio() {
     if (before.segment[0] !== now[0] || before.segment[1] !== now[1])
       saveHistory(before);
   }
-  function selectMode(next: string) {
+  /** Corpo não tem propriedades: escolhê-lo deixa o painel como está. */
+  function selectMode(next: EditMode, toggle = false) {
+    // Uma ferramenta de cada vez: escolher Corpo, Pagaia ou Ideal fecha o desenho.
+    if (drawing.on) {
+      drawing.open(false);
+      toggle = false;
+    }
     setMode(next);
     setPlacing(null);
     if (next === 'target') setShowTarget(true);
+    if (next !== 'correct')
+      setPanel((x) => (toggle && x === 'tool' && mode === next ? null : 'tool'));
+    else setPanel((x) => (x === 'tool' ? null : x));
+  }
+  /** Desenhar é a quarta ferramenta: a paleta flutua no vídeo, sem painel. */
+  function toggleDrawing() {
+    const next = !drawing.on;
+    drawing.open(next);
+    if (next) {
+      setPlacing(null);
+      setPanel((x) => (x === 'tool' ? null : x));
+    }
+  }
+  function togglePresent() {
+    const next = !present;
+    setPresent(next);
+    // Ecrã inteiro quando o sistema deixa; se não deixar, fica só a janela limpa.
+    const doc = document;
+    if (next && !doc.fullscreenElement)
+      void doc.documentElement.requestFullscreen?.().catch(() => {});
+    if (!next && doc.fullscreenElement) void doc.exitFullscreen?.().catch(() => {});
+  }
+  function openView(next: Panel) {
+    setPanel((x) => (x === next ? null : next));
+  }
+  function markTransition() {
+    video.current?.pause();
+    if (transitionStart === null) {
+      setTransitionStart(time);
+      return;
+    }
+    const merged = mergeRanges(p.transitions || [], [[transitionStart, time]]);
+    if (merged.length > 100) {
+      say('Máximo de 100 transições.', 'warn');
+      return;
+    }
+    commit({ ...p, transitions: merged });
+    setTransitionStart(null);
+    say('Transição marcada. Volta a analisar para aplicar.', 'info');
+  }
+  function toggleRegion() {
+    video.current?.pause();
+    if (drawing.on) drawing.open(false);
+    if (!selectingRegion) seek(p.segment[0]);
+    setSelectingRegion(!selectingRegion);
+    setRegionDraft(null);
+    regionStart.current = null;
+  }
+  function cancelJob() {
+    cancelled.current = true;
+    if (job)
+      void analyzerFetch(`/jobs/${job}`, { method: 'DELETE' }).catch(() => {});
   }
   const metrics = [
     [
-      'Cotovelo esq.',
+      'Cotovelo esq.', LIMB.armL,
       angle(corrected?.[11], corrected?.[13], corrected?.[15], w, h),
       angle(target?.[11], target?.[13], target?.[15], w, h),
     ],
     [
-      'Cotovelo dir.',
+      'Cotovelo dir.', LIMB.armR,
       angle(corrected?.[12], corrected?.[14], corrected?.[16], w, h),
       angle(target?.[12], target?.[14], target?.[16], w, h),
     ],
     [
-      'Joelho esq.',
+      'Joelho esq.', LIMB.legL,
       angle(reviewedPose?.[23], reviewedPose?.[25], reviewedPose?.[27], w, h),
       angle(reviewedTarget?.[23], reviewedTarget?.[25], reviewedTarget?.[27], w, h),
     ],
     [
-      'Joelho dir.',
+      'Joelho dir.', LIMB.legR,
       angle(reviewedPose?.[24], reviewedPose?.[26], reviewedPose?.[28], w, h),
       angle(reviewedTarget?.[24], reviewedTarget?.[26], reviewedTarget?.[28], w, h),
     ],
     [
-      'Pá / referência',
+      'Pagaia', INK.paddle,
       paddleAngle(paddle, w, h),
       paddleAngle(targetPaddle, w, h),
     ],
-  ] as [string, number | null, number | null][];
+  ] as [string, string, number | null, number | null][];
   /** O rasto de cada pulso leva a cor do braço a que pertence. */
   const paths = useMemo(() => {
     if (!showPaths) return [];
@@ -1050,15 +1240,6 @@ export default function Studio() {
         .map((points) => ({ points, ink: LIMB[JOINT_LIMB[id]] }));
     });
   }, [showPaths, p.frames, p.corrections, time, p.segment, w, h]);
-  const keys =
-    mode === 'correct'
-      ? p.corrections
-      : mode === 'target'
-        ? p.target
-        : p.paddle;
-  const keysHere = keys.filter(
-    (k) => k.t >= p.segment[0] && k.t <= p.segment[1],
-  );
   const paddleKeyHere = p.paddle.some((k) => Math.abs(k.t - time) < 0.04);
   /** `tint` a null pinta cada membro da sua cor; senão a camada é toda igual. */
   function skeleton(
@@ -1173,9 +1354,137 @@ export default function Studio() {
       </g>
     );
   }
+  const ready = !!src && !busy;
+  /** Ferramenta sem propriedades (Corpo) não abre painel nenhum. */
+  const inspector: Panel =
+    panel === 'tool' && mode === 'correct' ? null : panel;
+  const panelTitle: Record<Exclude<Panel, null>, string> = {
+    setup: 'Análise',
+    tool: MODES[mode].label,
+    summary: 'Resumo',
+    compare: 'Comparar pagaiadas',
+    '3d': 'Vista 3D',
+  };
+  const transport = (
+    <>
+      <div className="transport">
+        <button
+          aria-label="Fotograma anterior"
+          title="Fotograma anterior (←)"
+          disabled={!ready}
+          onClick={() => seek(time - 1 / p.video.fps)}
+        >
+          <SkipBack size={15} />
+        </button>
+        <button
+          className="play"
+          aria-label={playing ? 'Pausa' : 'Reproduzir'}
+          title="Reproduzir ou pausar (espaço)"
+          disabled={!ready}
+          onClick={togglePlay}
+        >
+          {playing ? <Pause size={17} /> : <Play size={17} />}
+        </button>
+        <button
+          aria-label="Fotograma seguinte"
+          title="Fotograma seguinte (→)"
+          disabled={!ready}
+          onClick={() => seek(time + 1 / p.video.fps)}
+        >
+          <SkipForward size={15} />
+        </button>
+        <span className="clock">
+          <strong>{fmt(time)}</strong>
+          <span>/ {fmt(p.video.duration)}</span>
+        </span>
+        <Choice
+          label="Velocidade"
+          value={speed}
+          onChange={(v) => {
+            // Escolher outra a meio da revisão fica para depois dela.
+            speedBefore.current = null;
+            setSpeed(v);
+          }}
+          items={[
+            ['0.25', '¼×'],
+            ['0.5', '½×'],
+            ['1', '1×'],
+            ['2', '2×'],
+          ]}
+        />
+        <Toggle checked={loop} onChange={setLoop}>
+          Repetir
+        </Toggle>
+      </div>
+      <fieldset className="layers">
+        <legend className="sr-only">Camadas no vídeo</legend>
+        <Toggle checked={showRaw} onChange={setShowRaw}>
+          <i className="sw" style={{ background: INK.before }} />
+          Antes
+        </Toggle>
+        <Toggle
+          checked={showTarget}
+          onChange={setShowTarget}
+          disabled={!p.targetEnabled}
+          title={p.targetEnabled ? undefined : 'Cria primeiro o movimento ideal (ferramenta Ideal)'}
+        >
+          <i className="sw" style={{ background: INK.target }} />
+          Ideal
+        </Toggle>
+        <Toggle checked={showPaths} onChange={setShowPaths}>
+          <i className="sw trail" />
+          Rasto
+        </Toggle>
+        <Toggle checked={showAngles} onChange={setShowAngles}>
+          Ângulos
+        </Toggle>
+      </fieldset>
+      <button
+        className="shortcuts"
+        title="Atalhos do teclado (?)"
+        onClick={() => setKeysOpen(true)}
+      >
+        <Keyboard size={14} />
+        <kbd>?</kbd>
+        <span className="sr-only">Atalhos do teclado</span>
+      </button>
+      <button
+        className="present"
+        aria-pressed={present}
+        disabled={!src}
+        title={present ? 'Voltar ao editor (F ou Esc)' : 'Só o vídeo, para mostrar ao atleta (F)'}
+        onClick={togglePresent}
+      >
+        {present ? <Minimize size={15} /> : <Maximize size={15} />}
+        {present ? 'Voltar' : 'Apresentar'}
+      </button>
+    </>
+  );
   return (
-    <main className="studio">
-      <header>
+    <main
+      className="studio"
+      data-video={src ? 'loaded' : undefined}
+      data-present={(present && !!src) || undefined}
+    >
+      <header className="topbar">
+        <div className="file">
+          <strong
+            className="filename"
+            data-empty={!p.video.name || undefined}
+            title={p.video.name || undefined}
+          >
+            {p.video.name || 'Sem vídeo'}
+          </strong>
+          {src && (
+            <small>
+              {w} × {h} · {fmt(p.video.duration)}
+            </small>
+          )}
+          <button disabled={busy} title={videoAction} onClick={openVideo}>
+            <Upload size={14} />
+            {videoAction}
+          </button>
+        </div>
         <div className="header-actions">
           {!connected && (
             <span className="chip warn">
@@ -1186,8 +1495,26 @@ export default function Studio() {
               </button>
             </span>
           )}
+          <span className="history">
+            <button
+              aria-label="Anular"
+              title="Anular (Ctrl+Z)"
+              disabled={!undoCount || busy}
+              onClick={undo}
+            >
+              <Undo2 size={15} />
+            </button>
+            <button
+              aria-label="Refazer"
+              title="Refazer (Ctrl+Y)"
+              disabled={!redoCount || busy}
+              onClick={redo}
+            >
+              <Redo2 size={15} />
+            </button>
+          </span>
           <button disabled={busy} onClick={openProject}>
-            <FolderOpen size={16} />
+            <FolderOpen size={15} />
             Abrir projeto
           </button>
           <button
@@ -1195,7 +1522,7 @@ export default function Studio() {
             onClick={exportProject}
             title="Guardar num ficheiro .stroke.json (Ctrl+S)"
           >
-            <Download size={16} />
+            <Download size={15} />
             Guardar
             {dirty && (
               <>
@@ -1229,702 +1556,501 @@ export default function Studio() {
           e.target.value = '';
         }}
       />
-      <div className="videobar">
-        <strong
-          className="filename"
-          data-empty={!p.video.name || undefined}
-          title={p.video.name || undefined}
-        >
-          {p.video.name || 'Sem vídeo'}
-        </strong>
-        {src && (
-          <small>
-            {w} × {h} · {fmt(p.video.duration)}
-          </small>
-        )}
-        <button disabled={busy} title={videoAction} onClick={openVideo}>
-          <Upload size={15} />
-          {videoAction}
-        </button>
-      </div>
-      <div className={`workspace ${activePanel === '3d' ? 'workspace-3d' : ''}`}>
-        <nav className="workspace-nav" aria-label="Ferramentas do projeto">
-          <button aria-pressed={activePanel === '3d'} onClick={() => setActivePanel('3d')}><ScanLine size={20} /><span>Vista 3D</span></button>
-          <button aria-pressed={activePanel === 'edit'} onClick={() => setActivePanel('edit')}><Pencil size={20} /><span>Editar</span></button>
-          <button aria-pressed={activePanel === 'summary'} onClick={() => setActivePanel('summary')}><ChartNoAxesColumn size={20} /><span>Resumo</span></button>
-          <button aria-pressed={activePanel === 'compare'} onClick={() => { setActivePanel('compare'); requestAnimationFrame(() => document.getElementById('stroke-comparison')?.scrollIntoView({block:'start'})); }}><ChartNoAxesColumn size={20} /><span>Comparar</span></button>
+      <div
+        className="workspace"
+        data-inspector={inspector || undefined}
+      >
+        <nav className="rail" aria-label="Ferramentas">
+          <button
+            className="rail-btn"
+            aria-pressed={inspector === 'setup'}
+            data-attention={(!!src && !tracked && !busy) || undefined}
+            title="Trecho, área do atleta e análise"
+            onClick={() => openView('setup')}
+          >
+            <ScanLine size={19} />
+            <span>Análise</span>
+          </button>
+          <span className="rail-sep" />
+          <fieldset className="rail-group">
+            <legend className="sr-only">O que editas no vídeo</legend>
+            {/* Os pontos do corpo arrastam-se sempre; Ideal liga e desliga. */}
+            <button
+              className="rail-btn"
+              aria-pressed={mode === 'target' && !drawing.on}
+              disabled={!src}
+              title={`Ideal: ${MODES.target.hud.toLowerCase()} (G)`}
+              onClick={() => selectMode(mode === 'target' && !drawing.on ? 'correct' : 'target')}
+            >
+              <Target size={19} />
+              <span>Ideal</span>
+            </button>
+            <button
+              className="rail-btn"
+              aria-pressed={drawing.on}
+              disabled={!src || busy}
+              title="Desenhar por cima do vídeo (D)"
+              onClick={toggleDrawing}
+            >
+              <Brush size={19} />
+              <span>Desenhar</span>
+            </button>
+          </fieldset>
+          <span className="rail-sep" />
+          {VIEWS.map(([key, label, Icon]) => (
+            <button
+              key={key}
+              className="rail-btn"
+              aria-pressed={inspector === key}
+              onClick={() => openView(key)}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+            </button>
+          ))}
         </nav>
-        <section className="viewer">
-          <div className={`stage ${placingNow ? 'placing' : ''}`}>
-            {src ? (
-              <div
-                className="video-wrap"
-                style={
-                  {
-                    aspectRatio: `${w}/${h}`,
-                    '--ar': `${w / h}`,
-                  } as React.CSSProperties
+        <section className={`stage ${placingNow ? 'placing' : ''}`}>
+          {src ? (
+            <div
+              className="video-wrap"
+              style={
+                {
+                  aspectRatio: `${w}/${h}`,
+                  '--ar': `${w / h}`,
+                } as React.CSSProperties
+              }
+            >
+              <video
+                ref={video}
+                src={src}
+                onLoadedMetadata={metadata}
+                onPlay={() => {
+                  lastFrame.current.at = performance.now();
+                  setPlaying(true);
+                }}
+                onPause={() => setPlaying(false)}
+                onTimeUpdate={(e) => {
+                  if (!framed || e.currentTarget.paused) setTime(e.currentTarget.currentTime);
+                }}
+                onError={() =>
+                  say('Não deu para ler o vídeo. Tenta MP4 H.264.', 'warn')
                 }
-              >
-                <video
-                  ref={video}
-                  src={src}
-                  onLoadedMetadata={metadata}
-                  onPlay={() => setPlaying(true)}
-                  onPause={() => setPlaying(false)}
-                  onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
-                  onError={() =>
-                    say('Não deu para ler o vídeo. Tenta MP4 H.264.', 'warn')
-                  }
-                  muted
-                  playsInline
-                />
-                <svg
-                  className="overlay"
-                  viewBox={`0 0 ${w} ${h}`}
-                  preserveAspectRatio="none"
-                  onPointerDown={down}
-                  onPointerMove={move}
-                  onPointerUp={up}
-                  onPointerCancel={() => {
-                    regionStart.current = null;
-                    setRegionDraft(null);
-                    if (drag.current) {
-                      setP(drag.current.before);
-                      drag.current = null;
-                    }
-                  }}
-                  aria-label="Esqueleto do atleta e pá, editáveis"
-                >
-                  {(regionDraft || p.athleteRegion) && (() => {
-                    const r = regionDraft || followedFrame?.region || p.athleteRegion!;
-                    return <rect x={r.x*w} y={r.y*h} width={r.width*w} height={r.height*h}
-                      fill="rgba(255,216,77,0.06)" stroke={followedFrame?.regionStatus === 'uncertain' ? '#ff885c' : '#ffd84d'} strokeWidth={2}
-                      strokeDasharray="8 5" vectorEffect="non-scaling-stroke" pointerEvents="none" />;
-                  })()}
-                  {paths.map((path, i) => (
-                    <polyline
-                      key={i}
-                      points={path.points}
-                      fill="none"
-                      stroke={path.ink}
-                      strokeWidth={2}
-                      opacity={0.55}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
-                  {showRaw && skeleton(raw, INK.before, false, true)}
-                  {skeleton(reviewedPose, null, mode === 'correct')}
-                  {p.targetEnabled &&
-                    showTarget &&
-                    skeleton(reviewedTarget, INK.target, mode === 'target')}
-                  {inSegment && paddleDrawing(paddle, INK.paddle)}
-                  {inSegment &&
-                    p.targetEnabled &&
-                    showTarget &&
-                    paddleDrawing(targetPaddle, INK.target, true)}
-                </svg>
-                <div className="hud">
-                  <span className="hud-time">{fmt(time)}</span>
-                  <span className="hud-mode">{MODES[mode].hud}</span>
-                </div>
-                {busy && (
-                  <div className="stage-veil">
-                    <LoaderCircle size={26} className="spin" />
-                    <strong>{progress}%</strong>
-                  </div>
-                )}
-                {!busy && tracked && !inSegment && (
-                  <div className="stage-note">
-                    <TriangleAlert size={15} />
-                    Fora do trecho analisado
-                    <button onClick={() => seek(p.segment[0])}>Ir</button>
-                  </div>
-                )}
-                {placingNow && (
-                  <div className="place-hint">
-                    Carrega para colocar {pointName(placingNow)}
-                    <button
-                      onClick={() => setPlacing(null)}
-                      aria-label="Cancelar"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="empty">
-                {relinking && (
-                  <>
-                    <h2>Falta o vídeo</h2>
-                    <p>
-                      <b>{p.video.name}</b>
-                    </p>
-                  </>
-                )}
-                <button className="primary" onClick={openVideo}>
-                  <Upload size={16} />
-                  {videoAction}
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="timeline">
-            <div className="scrub">
-              <div className="track" aria-hidden="true">
-                <div className="track-inner">
-                  {bands.map(([a, b]) => (
-                    <span
-                      key={a}
-                      className="band"
-                      style={{
-                        left: `${pct(a)}%`,
-                        width: `${Math.max(0.4, pct(b) - pct(a))}%`,
-                      }}
-                    />
-                  ))}
-                  <span
-                    className="window"
-                    style={{
-                      left: `${pct(p.segment[0])}%`,
-                      width: `${pct(p.segment[1]) - pct(p.segment[0])}%`,
-                    }}
-                  />
-                </div>
-              </div>
-              <input
-                className="range range-time"
-                type="range"
-                aria-label="Posição no vídeo"
-                min={0}
-                max={Number(duration.toFixed(3))}
-                step="any"
-                value={Math.min(time, duration)}
-                disabled={!src || busy}
-                onChange={(e) => seek(Number(e.target.value))}
+                muted
+                playsInline
               />
-              {(['in', 'out'] as const).map((edge) => (
-                <input
-                  key={edge}
-                  className={`range range-seg range-${edge}`}
-                  type="range"
-                  aria-label={
-                    edge === 'in'
-                      ? 'Início do trecho, em segundos'
-                      : 'Fim do trecho, em segundos'
-                  }
-                  min={0}
-                  max={Number(duration.toFixed(3))}
-                  step="any"
-                  value={p.segment[edge === 'in' ? 0 : 1]}
-                  disabled={!src || busy}
-                  onChange={(e) => dragSegment(edge, Number(e.target.value))}
-                  onPointerUp={endSegmentEdit}
-                  onKeyUp={endSegmentEdit}
-                  onBlur={endSegmentEdit}
-                />
-              ))}
-            </div>
-            <div className="timeline-labels">
-              <span>{fmt(time)}</span>
-              {p.events.some(e => e.review !== 'skipped') && <span className="marker-legend">↓ Entrada · ↑ Saída · E/D: esquerda/direita</span>}
-              <span>{fmt(p.video.duration)}</span>
-            </div>
-            <StrokeReview key={src} project={p} time={time} disabled={busy} hasVideo={!!src}
-              commit={commit} seek={seek} replay={replayStroke} />
-          </div>
-          <div className="transport">
-            <button
-              aria-label="Fotograma anterior"
-              title="Fotograma anterior (←)"
-              disabled={!src || busy}
-              onClick={() => seek(time - 1 / p.video.fps)}
-            >
-              <SkipBack size={16} />
-            </button>
-            <button
-              aria-label={playing ? 'Pausa' : 'Reproduzir'}
-              title="Reproduzir ou pausar (espaço)"
-              disabled={!src || busy}
-              onClick={togglePlay}
-            >
-              {playing ? <Pause size={17} /> : <Play size={17} />}
-            </button>
-            <button
-              aria-label="Fotograma seguinte"
-              title="Fotograma seguinte (→)"
-              disabled={!src || busy}
-              onClick={() => seek(time + 1 / p.video.fps)}
-            >
-              <SkipForward size={16} />
-            </button>
-            <Choice
-              label="Velocidade"
-              value={speed}
-              onChange={setSpeed}
-              items={[
-                ['0.25', '¼×'],
-                ['0.5', '½×'],
-                ['1', '1×'],
-                ['2', '2×'],
-              ]}
-            />
-            <Toggle checked={loop} onChange={setLoop}>
-              Repetir
-            </Toggle>
-            <span className="layers">
-              <Toggle checked={showRaw} onChange={setShowRaw}>
-                <i className="sw" style={{ background: INK.before }} />
-                Antes
-              </Toggle>
-              <Toggle
-                checked={showTarget}
-                onChange={setShowTarget}
-                disabled={!p.targetEnabled}
-              >
-                <i className="sw" style={{ background: INK.target }} />
-                Ideal
-              </Toggle>
-              <Toggle checked={showPaths} onChange={setShowPaths}>
-                <i className="sw trail" />
-                Rasto
-              </Toggle>
-            </span>
-            <details className="shortcuts">
-              <summary>
-                <Keyboard size={14} />
-                <span className="sr-only">Atalhos</span>
-              </summary>
-              <ul>
-                <li>
-                  <kbd>Espaço</kbd> reproduzir
-                </li>
-                <li>
-                  <kbd>←</kbd> <kbd>→</kbd> um fotograma
-                </li>
-                <li>
-                  <kbd>Ctrl</kbd>+<kbd>Z</kbd> anular
-                </li>
-                <li>
-                  <kbd>Ctrl</kbd>+<kbd>S</kbd> guardar
-                </li>
-              </ul>
-            </details>
-          </div>
-          <div className="analyse">
-            <div className="segment-fields">
-              <span className="eyebrow">TRECHO</span>
-              <input
-                type="number"
-                aria-label="Início do trecho, em segundos"
-                step="0.1"
-                min={0}
-                max={p.segment[1] - 0.1}
-                disabled={!src || busy}
-                value={Number(p.segment[0].toFixed(3))}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n)) commit(setSegment('in', n, p));
-                }}
-              />
-              <button
-                disabled={!src || busy || time >= p.segment[1] - 0.1}
-                title="Pôr o início onde o vídeo está parado"
-                onClick={() => commit(setSegment('in', time, p))}
-              >
-                aqui
-              </button>
-              <span className="dash">–</span>
-              <input
-                type="number"
-                aria-label="Fim do trecho, em segundos"
-                step="0.1"
-                min={p.segment[0] + 0.1}
-                max={p.video.duration}
-                disabled={!src || busy}
-                value={Number(p.segment[1].toFixed(3))}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n)) commit(setSegment('out', n, p));
-                }}
-              />
-              <button
-                disabled={!src || busy || time <= p.segment[0] + 0.1}
-                title="Pôr o fim onde o vídeo está parado"
-                onClick={() => commit(setSegment('out', time, p))}
-              >
-                aqui
-              </button>
-              <span className={segmentLength > 120 ? 'warn-text' : 'dim'}>
-                {segmentLength.toFixed(1)} s
-              </span>
-            </div>
-            <div className="analyse-action">
-              <Toggle checked={p.analysisQuality === 'detailed'} disabled={!src || busy}
-                onChange={checked => commit({...p, analysisQuality: checked ? 'detailed' : 'standard'})}>
-                Análise detalhada
-              </Toggle>
-              {src && <button disabled={busy} aria-pressed={selectingRegion}
-                title="Selecionar área do atleta: arrasta um retângulo no vídeo"
-                onClick={() => {
-                  video.current?.pause();
-                  if (!selectingRegion) seek(p.segment[0]);
-                  setSelectingRegion(!selectingRegion);
-                  setRegionDraft(null);
+              <svg
+                className="overlay"
+                viewBox={`0 0 ${w} ${h}`}
+                preserveAspectRatio="none"
+                onPointerDown={down}
+                onPointerMove={move}
+                onPointerUp={up}
+                onPointerCancel={() => {
                   regionStart.current = null;
-                }}>
-                {selectingRegion ? 'Cancelar seleção' : 'Área do atleta'}
-              </button>}
-              {src && p.athleteRegion && <button disabled={busy || selectingRegion}
-                aria-pressed={!!p.followAthlete}
-                title="Experimental: seguir a área na próxima deteção. Laranja: movimento incerto."
-                onClick={() => commit({...p, followAthlete: !p.followAthlete})}>
-                {p.followAthlete && <Check size={14} />} Seguir
-              </button>}
-              {src && p.athleteRegion && <button disabled={busy} onClick={() => {
-                commit({...p, athleteRegion: undefined, followAthlete: false});
-                setSelectingRegion(false);
-                setRegionDraft(null);
-                regionStart.current = null;
-              }}>Vídeo inteiro</button>}
-
-
-              {src && blocked && <small className="warn-text">{blocked}</small>}
-              <button
-                className="primary"
-                disabled={!!blocked || selectingRegion}
-                onClick={startTracking}
+                  setRegionDraft(null);
+                  if (drag.current) {
+                    setP(drag.current.before);
+                    drag.current = null;
+                  }
+                }}
+                aria-label="Esqueleto do atleta e pá, editáveis"
               >
-                <ScanLine size={17} />
-                Analisar a minha pagaiada
-              </button>
-            </div>
-          </div>
-          {busy && (
-            <div className="job-progress">
-              <Progress aria-label="Progresso da deteção" value={progress} />
-              <div>
-                <span>A detetar… {progress}%</span>
-                <button
-                  onClick={() => {
-                    cancelled.current = true;
-                    if (job)
-                      void analyzerFetch(`/jobs/${job}`, {
-                        method: 'DELETE',
-                      }).catch(() => {});
-                  }}
-                >
-                  Cancelar
-                </button>
+                {(regionDraft || p.athleteRegion) && (() => {
+                  const r = regionDraft || followedFrame?.region || p.athleteRegion!;
+                  return <rect x={r.x*w} y={r.y*h} width={r.width*w} height={r.height*h}
+                    fill="rgba(255,216,77,0.06)" stroke={followedFrame?.regionStatus === 'uncertain' ? '#ff885c' : '#ffd84d'} strokeWidth={2}
+                    strokeDasharray="8 5" vectorEffect="non-scaling-stroke" pointerEvents="none" />;
+                })()}
+                {paths.map((path, i) => (
+                  <polyline
+                    key={i}
+                    points={path.points}
+                    fill="none"
+                    stroke={path.ink}
+                    strokeWidth={2}
+                    opacity={0.55}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+                {showRaw && skeleton(raw, INK.before, false, true)}
+                {skeleton(reviewedPose, null, mode === 'correct')}
+                {p.targetEnabled &&
+                  showTarget &&
+                  skeleton(reviewedTarget, INK.target, mode === 'target')}
+                {inSegment && paddleDrawing(paddle, INK.paddle)}
+                {inSegment &&
+                  p.targetEnabled &&
+                  showTarget &&
+                  paddleDrawing(targetPaddle, INK.target, true)}
+              </svg>
+              <DrawingLayer d={drawing} />
+              <div className="hud">
+                <span className="hud-time">{fmt(time)}</span>
+                {(selectingRegion || (tracked && inSegment)) && (
+                  <span className="hud-mode">
+                    {selectingRegion ? 'Arrasta um retângulo' : MODES[mode].hud}
+                  </span>
+                )}
               </div>
+              {showAngles && !busy && corrected && !drawing.on && (
+                <dl
+                  className="angle-chips"
+                  title="Ângulos medidos na imagem plana, não em 3D."
+                >
+                  {metrics.map(([label, ink, a, b]) =>
+                    a === null ? null : (
+                      <div key={label}>
+                        <dt>
+                          <i style={{ background: ink }} />
+                          {label}
+                        </dt>
+                        <dd>
+                          {deg(a)}
+                          {p.targetEnabled && b !== null && (
+                            <small className="ideal">
+                              {b - a >= 0 ? '+' : ''}
+                              {(b - a).toFixed(1)}°
+                            </small>
+                          )}
+                        </dd>
+                      </div>
+                    ),
+                  )}
+                </dl>
+              )}
+              {busy && (
+                <div className="stage-veil">
+                  <LoaderCircle size={24} className="spin" />
+                  <strong>{progress}%</strong>
+                  <Progress aria-label="Progresso da deteção" value={progress} />
+                  <button onClick={cancelJob}>Cancelar</button>
+                </div>
+              )}
+              {(drawing.on || present) && <DrawingToolbar d={drawing} />}
+            </div>
+          ) : (
+            <div className="empty">
+              {relinking && (
+                <>
+                  <h2>Falta o vídeo</h2>
+                  <p>
+                    <b>{p.video.name}</b>
+                  </p>
+                </>
+              )}
+              <button className="primary" onClick={openVideo}>
+                <Upload size={16} />
+                {videoAction}
+              </button>
             </div>
           )}
-          <div className="angles">
-            {metrics.map(([label, a, b]) => (
-              <div className="metric" key={label}>
-                <span>{label}</span>
-                <strong title={a === null ? 'Sem ponto fiável' : undefined}>
-                  {deg(a)}
-                </strong>
-                {p.targetEnabled && a !== null && b !== null && (
-                  <small className="ideal">
-                    {b - a >= 0 ? '+' : ''}
-                    {(b - a).toFixed(1)}°
-                  </small>
-                )}
+          <div className="stage-msgs">
+            {!busy && tracked && !inSegment && src && (
+              <div className="stage-note">
+                <TriangleAlert size={15} />
+                Fora do trecho analisado
+                <button onClick={() => seek(p.segment[0])}>Ir</button>
               </div>
-            ))}
-            <p className="angles-note">Medidos na imagem plana, não em 3D.</p>
-          </div>
-          {activePanel === 'compare' && <StrokeComparison key={src} project={p} disabled={busy || !src}
-            replay={(a,b) => { replayStroke(a,b); video.current?.scrollIntoView({block:'center'}); }} />}
-        </section>
-        <aside>
-          {activePanel === '3d' && <Pose3D project={p} time={time} available={!!src && inSegment && !busy} />}
-          {(activePanel === 'summary' || activePanel === 'compare') && <TimingSummary project={p} />}
-          <div hidden={activePanel !== 'edit'}>
-            <fieldset className="modes">
-              <legend className="sr-only">O que estás a editar no vídeo</legend>
-              <div>
-                {Object.entries(MODES).map(([key, m]) => (
-                  <label
-                    key={key}
-                    className="mode"
-                    data-active={mode === key || undefined}
-                  >
-                    <input
-                      type="radio"
-                      name="stroke-mode"
-                      value={key}
-                      checked={mode === key}
-                      onChange={() => selectMode(key)}
-                    />
-                    {m.label}
-                  </label>
-                ))}
-              </div>
-              <div className="undo">
-                <button
-                  aria-label="Anular"
-                  title="Anular (Ctrl+Z)"
-                  disabled={!undoCount || busy}
-                  onClick={undo}
-                >
-                  <Undo2 size={15} />
-                </button>
-                <button
-                  aria-label="Refazer"
-                  title="Refazer (Ctrl+Y)"
-                  disabled={!redoCount || busy}
-                  onClick={redo}
-                >
-                  <Redo2 size={15} />
-                </button>
-              </div>
-            </fieldset>
-            {mode === 'paddle' && (
-              <>
-                <p className="help">
-                  Marca A→B na pagaia e 1→2 na referência, sempre no mesmo
-                  sentido. Vários fotogramas animam a pagaia.
-                </p>
-                <div className="paddle-buttons">
-                  {PADDLE_POINTS.map(([id, label]) => (
-                    <button
-                      key={id}
-                      disabled={!src || busy || !inSegment}
-                      className={placingNow === id ? 'active' : ''}
-                      onClick={() => {
-                        video.current?.pause();
-                        setPlacing(id);
-                      }}
-                    >
-                      {paddle[id] ? <Check size={14} /> : <Plus size={14} />}
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <p className="picked">
-                  {Object.keys(paddle).length}/4 ·{' '}
-                  {deg(paddleAngle(paddle, w, h))}
-                </p>
-                <button
-                  className="full"
-                  disabled={!paddleKeyHere || busy}
-                  onClick={() =>
-                    commit({
-                      ...p,
-                      paddle: p.paddle.filter(
-                        (k) => Math.abs(k.t - time) > 0.04,
-                      ),
-                    })
-                  }
-                >
-                  <X size={15} />
-                  Apagar marcas deste fotograma
-                </button>
-              </>
             )}
-            {mode === 'target' &&
-              (p.targetEnabled ? (
+            {placingNow && (
+              <div className="place-hint">
+                Carrega para colocar {pointName(placingNow)}
+                <button onClick={() => setPlacing(null)} aria-label="Cancelar">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {selectingRegion && (
+              <div className="place-hint">
+                Arrasta à volta do atleta, com espaço para os braços
+                <button onClick={toggleRegion} aria-label="Cancelar seleção">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            <div className="toasts" aria-live="polite">
+              {note.text && (
+                <div className="toast" data-tone={note.tone}>
+                  {note.tone === 'ok' ? (
+                    <CircleCheck size={16} />
+                  ) : note.tone === 'warn' ? (
+                    <TriangleAlert size={16} />
+                  ) : note.tone === 'busy' ? (
+                    <LoaderCircle size={16} className="spin" />
+                  ) : (
+                    <Info size={16} />
+                  )}
+                  <span>{note.text}</span>
+                  <button onClick={hush} aria-label="Fechar aviso">
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+        {inspector && (
+          <aside className="inspector" aria-label={panelTitle[inspector]}>
+            <div className="inspector-head">
+              <h2>{panelTitle[inspector]}</h2>
+              {inspector === '3d' && <span className="badge">Experimental</span>}
+              <button
+                className="inspector-close"
+                aria-label="Fechar painel"
+                title="Fechar painel"
+                onClick={() => setPanel(null)}
+              >
+                <PanelRightClose size={16} />
+              </button>
+            </div>
+            <div className="inspector-body">
+              {inspector === 'setup' && (
+                <div className="setup">
+                  <div className="setup-row">
+                    <span className="field-label">Trecho</span>
+                    <div className="segment-fields">
+                      <input
+                        type="number"
+                        aria-label="Início do trecho, em segundos"
+                        step="0.1"
+                        min={0}
+                        max={p.segment[1] - 0.1}
+                        disabled={!src || busy}
+                        value={Number(p.segment[0].toFixed(3))}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n)) commit(setSegment('in', n, p));
+                        }}
+                      />
+                      <button
+                        disabled={!src || busy || time >= p.segment[1] - 0.1}
+                        title="Pôr o início onde o vídeo está parado (I)"
+                        onClick={() => commit(setSegment('in', time, p))}
+                      >
+                        aqui
+                      </button>
+                      <span className="dash">–</span>
+                      <input
+                        type="number"
+                        aria-label="Fim do trecho, em segundos"
+                        step="0.1"
+                        min={p.segment[0] + 0.1}
+                        max={p.video.duration}
+                        disabled={!src || busy}
+                        value={Number(p.segment[1].toFixed(3))}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n)) commit(setSegment('out', n, p));
+                        }}
+                      />
+                      <button
+                        disabled={!src || busy || time <= p.segment[0] + 0.1}
+                        title="Pôr o fim onde o vídeo está parado (O)"
+                        onClick={() => commit(setSegment('out', time, p))}
+                      >
+                        aqui
+                      </button>
+                    </div>
+                    <small className={segmentLength > 120 ? 'warn-text' : 'dim'}>
+                      {segmentLength.toFixed(1)} s · também se arrasta na linha do tempo
+                    </small>
+                  </div>
+                  <div className="setup-row">
+                    <span className="field-label">Atleta</span>
+                    <div className="setup-buttons">
+                      <button
+                        disabled={!src || busy}
+                        aria-pressed={selectingRegion}
+                        title="Arrasta um retângulo no vídeo à volta do atleta"
+                        onClick={toggleRegion}
+                      >
+                        {selectingRegion ? 'Cancelar seleção' : 'Área do atleta'}
+                      </button>
+                      {p.athleteRegion && (
+                        <>
+                          <button
+                            disabled={!src || busy || selectingRegion}
+                            aria-pressed={!!p.followAthlete}
+                            title="Experimental: seguir a área na próxima deteção. Laranja: movimento incerto."
+                            onClick={() => commit({ ...p, followAthlete: !p.followAthlete })}
+                          >
+                            {p.followAthlete && <Check size={14} />} Seguir
+                          </button>
+                          <button
+                            disabled={!src || busy}
+                            onClick={() => {
+                              commit({ ...p, athleteRegion: undefined, followAthlete: false });
+                              setSelectingRegion(false);
+                              setRegionDraft(null);
+                              regionStart.current = null;
+                            }}
+                          >
+                            Vídeo inteiro
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={p.analysisQuality === 'detailed'}
+                    disabled={!src || busy}
+                    onChange={(checked) =>
+                      commit({ ...p, analysisQuality: checked ? 'detailed' : 'standard' })
+                    }
+                  >
+                    Análise detalhada
+                  </Toggle>
+                  {(p.transitions?.length || 0) > 0 && (
+                    <small className="dim">
+                      {p.transitions!.length}{' '}
+                      {p.transitions!.length === 1 ? 'transição fica' : 'transições ficam'} de fora
+                    </small>
+                  )}
+                  <button
+                    className="primary full"
+                    disabled={!!blocked || selectingRegion}
+                    onClick={startTracking}
+                  >
+                    <ScanLine size={17} />
+                    Analisar a minha pagaiada
+                  </button>
+                  {blocked && !busy && <small className="warn-text">{blocked}</small>}
+                </div>
+              )}
+              {inspector === 'tool' && mode === 'paddle' && (
                 <>
+                  <p className="help">
+                    A→B na pagaia, 1→2 na referência, sempre no mesmo sentido.
+                    Vários fotogramas animam a pagaia.
+                  </p>
+                  <div className="paddle-buttons">
+                    {PADDLE_POINTS.map(([id, label]) => (
+                      <button
+                        key={id}
+                        disabled={!src || busy || !inSegment}
+                        className={placingNow === id ? 'active' : ''}
+                        onClick={() => {
+                          video.current?.pause();
+                          setPlacing(id);
+                        }}
+                      >
+                        {paddle[id] ? <Check size={14} /> : <Plus size={14} />}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="picked">
+                    {Object.keys(paddle).length}/4 · {deg(paddleAngle(paddle, w, h))}
+                    {!inSegment && src && <span className="warn-text"> · fora do trecho</span>}
+                  </p>
+                  <button
+                    className="full"
+                    disabled={!paddleKeyHere || busy}
+                    onClick={() =>
+                      commit({
+                        ...p,
+                        paddle: p.paddle.filter((k) => Math.abs(k.t - time) > 0.04),
+                      })
+                    }
+                  >
+                    <X size={15} />
+                    Apagar marcas deste fotograma
+                  </button>
+                </>
+              )}
+              {inspector === 'tool' && mode === 'target' &&
+                (p.targetEnabled ? (
                   <p className="help">
                     Arrasta o esqueleto laranja e compara com o real. É um
                     desenho livre: não respeita o comprimento dos membros.
                   </p>
-                </>
-              ) : (
-                <div className="target-intro">
-                  <p>Uma cópia laranja que podes moldar, para comparar.</p>
-                  <button
-                    className="primary full"
-                    disabled={!corrected || busy}
-                    onClick={() => {
-                      commit({ ...p, targetEnabled: true });
-                      setShowTarget(true);
-                    }}
-                  >
-                    Criar movimento ideal
-                  </button>
-                </div>
-              ))}
-            {keysHere.length > 0 && (
-              <div className="keyframes">
-                <h3>Fotogramas editados</h3>
-                <div className="key-list">
-                  {keysHere.map((k) => (
-                    <button
-                      key={k.t}
-                      disabled={!src || busy}
-                      title="Ir para este fotograma"
-                      onClick={() => seek(k.t)}
-                    >
-                      {fmt(k.t)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {src && (
-              <details className="panel-section">
-                <summary>
-                  <ChevronRight size={13} className="chev" />
-                  <h3>Rever movimento</h3>
-                  <span className="count">{reviewFlags.length}</span>
-                </summary>
-                <p className="hint">
-                  Momentos em que a deteção pode ter falhado. Clica para ver no
-                  vídeo e corrigir.
-                </p>
-                {reviewFlags.length === 0 ? (
-                  <p className="empty">Nada a rever nesta remada.</p>
                 ) : (
-                  <div className="flag-list">
-                    {reviewFlags.map((f) => (
-                      <button
-                        className="flag"
-                        key={`${f.t}-${f.joint}`}
-                        disabled={busy}
-                        title={`${JOINTS[f.joint]}: ${f.kind === 'swap' ? 'possível troca de lados' : 'possível salto'}. Rever no vídeo.`}
-                        onClick={() => {
-                          video.current?.pause();
-                          seek(f.t);
-                          setMode('correct');
-                          setSelected(String(f.joint));
-                        }}
-                      >
-                        <time>{fmt(f.t)}</time>
-                        <span>{JOINTS[f.joint]}</span>
-                        <em>{f.kind === 'swap' ? 'troca?' : 'salto?'}</em>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </details>
-            )}
-            {src && (
-              <details className="panel-section">
-                <summary>
-                  <ChevronRight size={13} className="chev" />
-                  <h3>Transições</h3>
-                  <span className="count">{p.transitions?.length || 0}</span>
-                </summary>
-                <p className="hint">
-                  Marca os trechos em que não estás a remar — viragens, pausas.
-                  Volta a detetar para os aplicar.
-                </p>
-                <div className="row">
-                  <button
-                    disabled={
-                      busy || (transitionStart !== null && time <= transitionStart)
-                    }
-                    onClick={() => {
-                      video.current?.pause();
-                      if (transitionStart === null) {
-                        setTransitionStart(time);
-                        return;
-                      }
-                      const ranges: [number, number][] = [
-                        ...(p.transitions || []),
-                        [transitionStart, time],
-                      ];
-                      ranges.sort((a, b) => a[0] - b[0]);
-                      const merged: [number, number][] = [];
-                      for (const r of ranges) {
-                        const last = merged[merged.length - 1];
-                        if (last && r[0] <= last[1])
-                          last[1] = Math.max(last[1], r[1]);
-                        else merged.push([...r]);
-                      }
-                      if (merged.length > 100) {
-                        say('Máximo de 100 transições.', 'warn');
-                        return;
-                      }
-                      commit({ ...p, transitions: merged });
-                      setTransitionStart(null);
-                      say('Transição marcada. Volta a detetar para aplicar.', 'info');
-                    }}
-                  >
-                    <Flag size={14} />
-                    {transitionStart === null
-                      ? 'Marcar início'
-                      : `Marcar fim (início ${fmt(transitionStart)})`}
-                  </button>
-                  {transitionStart !== null && (
+                  <div className="target-intro">
+                    <p>Uma cópia laranja que podes moldar, para comparar.</p>
                     <button
-                      className="cancel"
-                      disabled={busy}
-                      onClick={() => setTransitionStart(null)}
+                      className="full"
+                      disabled={!corrected || busy}
+                      onClick={() => {
+                        commit({ ...p, targetEnabled: true });
+                        setShowTarget(true);
+                      }}
                     >
-                      Cancelar
+                      Criar movimento ideal
                     </button>
-                  )}
-                </div>
-                {(p.transitions || []).length > 0 && (
-                  <div className="range-list">
-                    {(p.transitions || []).map(([a, b], i) => (
-                      <div className="range" key={`${a}-${b}`}>
-                        <button disabled={busy} onClick={() => seek(a)}>
-                          <time>
-                            {fmt(a)} – {fmt(b)}
-                          </time>
-                        </button>
-                        <button
-                          disabled={busy}
-                          aria-label={`Remover transição ${i + 1}`}
-                          onClick={() =>
-                            commit({
-                              ...p,
-                              transitions: p.transitions!.filter((_, j) => j !== i),
-                            })
-                          }
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
+                    {!corrected && src && (
+                      <small className="dim">Precisa de um fotograma analisado.</small>
+                    )}
                   </div>
-                )}
-              </details>
-            )}
-            <div className="notes">
-              <label className="field-label" htmlFor="notes">
-                Notas
-              </label>
-              <textarea
-                id="notes"
-                disabled={busy}
-                placeholder="O que mudavas nesta remada?"
-                value={p.notes}
-                onChange={(e) => {
-                  setP({ ...p, notes: e.target.value });
-                  setDirty(true);
-                }}
-              />
+                ))}
+              {inspector === 'summary' && <TimingSummary project={p} />}
+              {inspector === 'summary' && (
+                <div className="notes">
+                  <label className="field-label" htmlFor="notes">
+                    Notas
+                  </label>
+                  <textarea
+                    id="notes"
+                    disabled={busy}
+                    placeholder="O que mudavas nesta remada?"
+                    value={p.notes}
+                    onChange={(e) => {
+                      setP({ ...p, notes: e.target.value });
+                      setDirty(true);
+                    }}
+                  />
+                </div>
+              )}
+              {inspector === 'compare' && (
+                <StrokeComparison
+                  key={src}
+                  project={p}
+                  disabled={busy || !src}
+                  replay={replayStroke}
+                />
+              )}
+              {inspector === '3d' && (
+                <Pose3D project={p} time={time} available={!!src && inSegment && !busy} />
+              )}
             </div>
-          </div>
-        </aside>
-      </div>
-      <div className="toasts" aria-live="polite">
-        {note.text && (
-          <div className="toast" data-tone={note.tone}>
-            {note.tone === 'ok' ? (
-              <CircleCheck size={16} />
-            ) : note.tone === 'warn' ? (
-              <TriangleAlert size={16} />
-            ) : note.tone === 'busy' ? (
-              <LoaderCircle size={16} className="spin" />
-            ) : (
-              <Info size={16} />
-            )}
-            <span>{note.text}</span>
-            <button onClick={hush} aria-label="Fechar aviso">
-              <X size={14} />
-            </button>
-          </div>
+          </aside>
         )}
       </div>
+      {src && (
+        <Timeline
+          key={src}
+          project={p}
+          time={time}
+          busy={busy}
+          hasVideo={!!src}
+          tracked={tracked}
+          flags={reviewFlags}
+          bands={bands}
+          transitionStart={transitionStart}
+          drawings={p.drawings}
+          keysOff={drawing.on}
+          commit={commit}
+          seek={seek}
+          replay={replayStroke}
+          dragSegment={dragSegment}
+          endSegmentEdit={endSegmentEdit}
+          markTransition={markTransition}
+          cancelTransition={() => setTransitionStart(null)}
+          onFlag={(f) => {
+            video.current?.pause();
+            seek(f.t);
+            selectMode('correct');
+            setSelected(String(f.joint));
+          }}
+          onKey={(m, t) => {
+            seek(t);
+            // A pagaia já não tem ferramenta: os pontos editados só se mostram.
+            if (m !== 'paddle' && m !== mode) selectMode(m);
+          }}
+        >
+          {transport}
+        </Timeline>
+      )}
+      <Shortcuts open={keysOpen} onOpenChange={setKeysOpen} />
       <AlertDialog
         open={confirmOpen}
         onOpenChange={(open) => {

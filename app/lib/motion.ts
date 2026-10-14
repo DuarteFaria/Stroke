@@ -1,3 +1,4 @@
+import { parseDrawings, type Drawing } from './drawings.ts';
 export type Point = { x: number; y: number; v: number };
 /** Estimated hip-relative metres; v is visibility, not depth accuracy. */
 export type WorldPoint = Point & { z: number };
@@ -123,6 +124,8 @@ export type Project = {
   followAthlete?: boolean;
   analysisQuality?: 'standard' | 'detailed';
   transitions?: [number, number][];
+  /** Ranges the coach removed as transitions: analysing again does not cut there. */
+  rejectedCuts?: [number, number][];
   frames: Frame[];
   corrections: Key[];
   target: Key[];
@@ -131,6 +134,8 @@ export type Project = {
   events: EventMark[];
   notes: string;
   targetEnabled: boolean;
+  /** Optional: older projects have none, and older releases ignore it. */
+  drawings?: Drawing[];
 };
 export const JOINTS: Record<number, string> = {
   0: 'Nariz',
@@ -293,6 +298,59 @@ export function paddleAngle(
     h,
   );
 }
+/** Sorted union of time ranges; overlapping or touching ranges become one. */
+export function mergeRanges(...lists: [number, number][][]): [number, number][] {
+  const merged: [number, number][] = [];
+  for (const r of lists.flat().sort((a, b) => a[0] - b[0])) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([r[0], r[1]]);
+  }
+  return merged;
+}
+/**
+ * The shot around `t`: from the end of the transition before it to the start
+ * of the next one. A time inside a transition belongs to that transition.
+ */
+export function shotAt(
+  t: number,
+  transitions: [number, number][] = [],
+  duration = Infinity,
+): [number, number] {
+  const inside = transitions.find(([a, b]) => t >= a && t <= b);
+  if (inside) return [inside[0], inside[1]];
+  let start = 0,
+    end = duration;
+  for (const [a, b] of transitions) {
+    if (b < t) start = Math.max(start, b);
+    else if (a > t) end = Math.min(end, a);
+  }
+  return [start, end];
+}
+/** Analysis frames inside `ranges` no longer restart the stroke count there. */
+export const unbreak = (frames: Frame[], ranges: [number, number][]) =>
+  frames.map((f) =>
+    f.breakBefore && !f.transition && ranges.some(([a, b]) => f.t >= a - 1e-6 && f.t <= b + 1e-6)
+      ? (({ breakBefore: _, ...rest }) => rest)(f)
+      : f,
+  );
+/**
+ * Remove a transition. A camera cut stops splitting strokes at once, and is
+ * remembered so that analysing again does not bring it back.
+ */
+export function removeTransition(p: Project, index: number): Project {
+  const r = p.transitions?.[index];
+  if (!r) return p;
+  return {
+    ...p,
+    transitions: p.transitions!.filter((_, j) => j !== index),
+    rejectedCuts: mergeRanges(p.rejectedCuts || [], [r]).slice(-200),
+    frames: unbreak(p.frames, [r]),
+  };
+}
+/** The transition `t` falls in, if any. */
+export const transitionAt = (t: number, transitions: [number, number][] = []) =>
+  transitions.find(([a, b]) => t >= a && t <= b);
 export function emptyProject(): Project {
   return {
     version: 2,
@@ -359,6 +417,9 @@ export function parseProject(value: unknown): Project {
   if (p.transitions !== undefined && (!Array.isArray(p.transitions) || p.transitions.length > 100 ||
     p.transitions.some((r,i) => !Array.isArray(r) || r.length !== 2 || !r.every(validTime) ||
       r[1] <= r[0] || (i > 0 && r[0] < p.transitions![i-1][1])))) return fail();
+  if (p.rejectedCuts !== undefined && (!Array.isArray(p.rejectedCuts) || p.rejectedCuts.length > 200 ||
+    p.rejectedCuts.some(r => !Array.isArray(r) || r.length !== 2 || !r.every(validTime) || r[1] < r[0])))
+    return fail();
   if (
     !Array.isArray(p.frames) ||
     p.frames.length > 20000 ||
@@ -423,5 +484,12 @@ export function parseProject(value: unknown): Project {
     return fail();
   if (new Set(p.events.map(e => e.id)).size !== p.events.length) return fail();
   p.events.sort((a, b) => a.t - b.t);
+  if (p.drawings !== undefined) {
+    try {
+      p.drawings = parseDrawings(p.drawings, p.video.duration);
+    } catch {
+      return fail();
+    }
+  }
   return p;
 }

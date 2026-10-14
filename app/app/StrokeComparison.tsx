@@ -1,52 +1,80 @@
-import { useMemo, useState } from 'react';
-import { type Project } from '@/lib/motion';
+import { useMemo } from 'react';
+import { shotAt, type Project } from '@/lib/motion';
 import { comparisonStats, comparisonStrokes, type ComparedStroke } from '@/lib/strokes';
 
-const sideName = (side: ComparedStroke['side']) => side === 'Left' ? 'Esquerda' : 'Direita';
+const SIDES = [['Left', 'Esq.'], ['Right', 'Dir.']] as const;
+const clock = (t: number) => `${Math.floor(t / 60)}:${Math.floor(t % 60).toString().padStart(2, '0')}`;
 const seconds = (value: number | null) => value === null ? '—' : `${value.toFixed(2)} s`;
-const signedSeconds = (value: number | null) => {
-  if (value === null) return '—';
-  const rounded = Math.round(value*100)/100;
-  return `${rounded > 0 ? '+' : ''}${rounded.toFixed(2)} s`;
-};
-const strokeName = (s: ComparedStroke) => `${sideName(s.side)} · ${s.start.toFixed(2)} s`;
-const metrics = [{key: 'water', label: 'Na água'}, {key: 'recovery', label: 'Recuperação'}, {key: 'cycle', label: 'Ciclo completo'}] as const;
+const metrics = [{key: 'water', label: 'Na água'}, {key: 'recovery', label: 'Recuperação'}, {key: 'cycle', label: 'Ciclo'}] as const;
+
+/** Uma frase com a diferença entre lados, ou nada se faltar um lado. */
+function verdict(left: number | null, right: number | null) {
+  if (left === null || right === null) return null;
+  const d = right - left;
+  if (Math.abs(d) < 0.005) return 'As duas pás ficam o mesmo tempo na água.';
+  const pct = Math.round(Math.abs(d) / Math.max(left, right) * 100);
+  return `A direita fica ${Math.abs(d).toFixed(2)} s ${d > 0 ? 'mais' : 'menos'} na água do que a esquerda (${pct}%).`;
+}
+
+/**
+ * Duas perguntas: um lado é diferente do outro, e qual pagaiada foge às
+ * restantes. Cada pagaiada é uma barra (água cheia, recuperação esbatida)
+ * que se carrega para a rever no vídeo.
+ */
 export default function StrokeComparison({project: p, disabled, replay}: {
   project: Project; disabled: boolean; replay: (a: number,b: number) => void;
 }) {
-  const [mode,setMode] = useState<'strokes' | 'sides'>('strokes');
-  const [ids,setIds] = useState<[string,string]>(['','']);
-  const [sideFilter,setSideFilter] = useState<'All' | 'Left' | 'Right'>('All');
   const strokes = useMemo(() => comparisonStrokes(p), [p]);
-  const filtered = strokes.filter(s => sideFilter === 'All' || s.side === sideFilter);
-  const a = filtered.find(s => s.id === ids[0]) ?? filtered[0];
-  const b = filtered.find(s => s.id === ids[1] && s.id !== a?.id) ?? filtered.find(s => s.id !== a?.id);
-  const chosen = [a,b];
-  const groups = mode === 'strokes' ? chosen.map(s => s ? [s] : []) :
-    [strokes.filter(s => s.side === 'Left'),strokes.filter(s => s.side === 'Right')];
-  const labels = mode === 'strokes' ? ['A','B'] : ['Esquerda','Direita'];
-  return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparações de pagaiadas">
-    <div className="comparison-heading"><div><h2>Comparar pagaiadas</h2><p>{strokes.length} pares entrada/saída confirmados · {strokes.filter(s => s.end !== null).length} ciclos completos</p></div>
-      <fieldset className="comparison-tabs"><legend className="sr-only">Tipo de comparação</legend><button aria-pressed={mode === 'strokes'} onClick={() => setMode('strokes')}>Pagaiada a pagaiada</button><button aria-pressed={mode === 'sides'} onClick={() => setMode('sides')}>Esquerda / direita</button></fieldset>
-    </div>
-    {!strokes.length ? <p className="comparison-empty">Adicione e confirme uma entrada e uma saída do mesmo lado na linha do tempo. Para comparar a duração do ciclo e a recuperação, marque também a próxima entrada desse lado e a entrada intermédia do lado oposto.</p> : <>
-      {mode === 'strokes' ? <>
-        <label className="comparison-filter">Mostrar <select value={sideFilter} onChange={e => setSideFilter(e.target.value as typeof sideFilter)}><option value="All">Ambos os lados</option><option value="Left">Só esquerda</option><option value="Right">Só direita</option></select></label>
-        <div className="comparison-pickers">{chosen.map((s,index) => <div key={index}>
-          <label>Pagaiada {labels[index]}<select aria-label={`Pagaiada ${labels[index]}`} value={s?.id ?? ''} disabled={!filtered.length} onChange={e => { const next: [string,string] = [a?.id ?? '',b?.id ?? '']; next[index] = e.target.value; setIds(next); }}>
-            {!s && <option value="">Sem outra pagaiada</option>}{filtered.map(option => <option key={option.id} value={option.id} disabled={chosen[1-index]?.id === option.id}>{strokeName(option)}</option>)}</select></label>
-          <div className="comparison-actions"><button disabled={disabled || !s} onClick={() => s && replay(s.start,s.end ?? s.exit)}>Rever {labels[index]}</button></div>
-        </div>)}</div>
-        {!b && <p>Escolha um filtro com pelo menos duas pagaiadas para comparar A e B.</p>}
-      </> : <p>Médias de todas as pagaiadas válidas no segmento selecionado. O número de amostras é indicado em cada medida.</p>}
-      <div className="comparison-table-wrap"><table className="comparison-table"><caption>{mode === 'strokes' ? 'Tempos das pagaiadas selecionadas' : 'Tempos médios por lado'}</caption><thead><tr><th scope="col">Medida</th>{labels.map(l => <th scope="col" key={l}>{l}</th>)}<th scope="col">{mode === 'strokes' ? 'B − A' : 'Direita − esquerda'}</th></tr></thead><tbody>
-        {metrics.map(metric => {
-          const stats = groups.map(group => comparisonStats(group.map(s => s[metric.key])));
-          const difference = stats[0].mean === null || stats[1].mean === null ? null : stats[1].mean-stats[0].mean;
-          return <tr key={metric.key}><th scope="row">{metric.label}</th>{stats.map((stat,i) => <td key={i}>{seconds(stat.mean)}{mode === 'sides' && <small>n = {stat.count}{stat.count > 1 && <><br />{seconds(stat.min)} – {seconds(stat.max)}</>}</small>}</td>)}<td>{signedSeconds(difference)}</td></tr>;
-        })}
-      </tbody></table></div>
-      <p>Recuperação: saída → próxima entrada do mesmo lado. «—» indica dados incompletos. Ciclos com marcações por rever, entradas em falta ou cortes são excluídos.</p>
-    </>}
+  if (!strokes.length)
+    return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar pagaiadas">
+      <p className="comparison-empty">Marca a entrada e a saída de uma pá (teclas 1–4) para comparar as pagaiadas.</p>
+    </section>;
+  const bySide = SIDES.map(([side]) => strokes.filter(s => s.side === side));
+  const rows = metrics.map(m => ({...m, stats: bySide.map(list => comparisonStats(list.map(s => s[m.key])))}))
+    .filter(r => r.stats.some(s => s.mean !== null));
+  const water = rows.find(r => r.key === 'water')!.stats;
+  const say = verdict(water[0].mean, water[1].mean);
+  const scale = Math.max(...strokes.map(s => s.cycle ?? s.water));
+  const anyRecovery = strokes.some(s => s.recovery !== null);
+  const pct = (v: number) => `${v / scale * 100}%`;
+  // Com cortes de câmara, as pagaiadas agrupam-se pelo plano onde começam.
+  const shots = strokes.reduce<{ shot: [number, number]; list: ComparedStroke[] }[]>((out, s) => {
+    const shot = shotAt(s.start, p.transitions, p.video.duration);
+    const last = out[out.length - 1];
+    if (last && last.shot[0] === shot[0]) last.list.push(s);
+    else out.push({ shot, list: [s] });
+    return out;
+  }, []);
+  const bar = (s: ComparedStroke) => <li key={s.id}>
+    <button className={`side-${s.side}`} disabled={disabled} onClick={() => replay(s.start, s.end ?? s.exit)}
+      title={`Rever a pagaiada em ${s.start.toFixed(2)} s · na água ${seconds(s.water)}${s.recovery !== null ? ` · recuperação ${seconds(s.recovery)}` : ''}`}>
+      <span className="bar-name"><i className="side-dot" />{SIDES.find(x => x[0] === s.side)![1]} {bySide[s.side === 'Left' ? 0 : 1].indexOf(s) + 1}</span>
+      <span className="bar-track">
+        <span className="bar-water" style={{width: pct(s.water)}} />
+        {s.recovery !== null && <span className="bar-recovery" style={{width: pct(s.recovery)}} />}
+      </span>
+      <span className="bar-value">{seconds(s.water)}</span>
+    </button>
+  </li>;
+  return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar pagaiadas">
+    {say && <p className="comparison-verdict">{say}</p>}
+    <table className="comparison-table">
+      <caption className="sr-only">Médias por lado</caption>
+      <thead><tr><th scope="col"><span className="sr-only">Medida</span></th>{SIDES.map(([side, name]) => <th scope="col" key={side}><i className={`side-dot side-${side}`} />{name}</th>)}</tr></thead>
+      <tbody>
+        {rows.map(r => <tr key={r.key}><th scope="row">{r.label}</th>{r.stats.map((s, i) => <td key={i}>{seconds(s.mean)}</td>)}</tr>)}
+        <tr className="comparison-count"><th scope="row">Pagaiadas</th>{bySide.map((list, i) => <td key={i}>{list.length}</td>)}</tr>
+      </tbody>
+    </table>
+    <h3 className="comparison-sub">Cada pagaiada</h3>
+    {shots.length < 2 ? <ol className="stroke-bars">{strokes.map(bar)}</ol> : shots.map(({shot: [a, b], list}, i) =>
+      <section key={a} className="stroke-shot" aria-label={`Plano ${i + 1}`}>
+        <h4>Plano {i + 1} <span>{clock(a)}–{clock(b)} · {list.length}</span></h4>
+        <ol className="stroke-bars">{list.map(bar)}</ol>
+      </section>)}
+    <p className="comparison-note">
+      {anyRecovery && <><i className="key-water" /> na água <i className="key-recovery" /> recuperação · </>}
+      Carrega numa pagaiada para a rever. Só contam marcações confirmadas.
+    </p>
   </section>;
 }

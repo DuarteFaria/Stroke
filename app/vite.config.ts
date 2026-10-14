@@ -6,4 +6,6 @@ export default defineConfig({
   css: { postcss: { plugins: [tailwindcss()] } },
   plugins: [vinext()],
   server: { host: '127.0.0.1', port: 3000, strictPort: true },
+  // Checkouts that share one node_modules need their own prebundle cache.
+  cacheDir: process.env.STROKE_VITE_CACHE_DIR,
 });

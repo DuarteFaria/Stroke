@@ -14,6 +14,8 @@ import {
   paddleAngle,
   emptyProject,
   parseProject,
+  mergeRanges,
+  removeTransition,
 } from '../lib/motion.ts';
 const pt = (x = 0, y = 0, v = 1) => ({ x, y, v });
 const pose = (x = 0) => Array.from({ length: 33 }, () => pt(x));
@@ -168,4 +170,39 @@ test('project JSON roundtrip preserves edits and validates untrusted input', () 
     parseProject({ ...p, target: [{ t: 1, points: { constructor: pt() } }] }),
   );
   assert.throws(() => parseProject({ ...p, video: { ...p.video, fps: 0 } }));
+});
+
+test('mergeRanges absorbs analyser cuts into existing transitions', () => {
+  const hand = [[20.3, 20.6], [9, 9.1]];
+  const cuts = [[9.01, 9.08], [13.75, 13.81], [20.35, 20.42], [20.6, 20.7]];
+  const merged = mergeRanges(hand, cuts);
+  assert.deepEqual(merged, [[9, 9.1], [13.75, 13.81], [20.3, 20.7]]);
+  // Re-analysing returns the same cuts: nothing new appears.
+  assert.deepEqual(mergeRanges(merged, cuts), merged);
+  assert.deepEqual(hand, [[20.3, 20.6], [9, 9.1]]);
+  const p = emptyProject();
+  p.video = { ...p.video, duration: 30 };
+  p.segment = [0, 30];
+  p.transitions = merged;
+  assert.deepEqual(parseProject(JSON.parse(JSON.stringify(p))).transitions, merged);
+});
+
+test('removing a camera cut stops it splitting strokes and is remembered', () => {
+  const p = emptyProject();
+  p.video = { ...p.video, duration: 10 };
+  p.segment = [0, 10];
+  p.transitions = [[2, 2.5], [5, 5.04]];
+  p.frames = [
+    { t: 2.6, points: null, breakBefore: true },
+    { t: 4.96, points: null },
+    { t: 5.04, points: null, breakBefore: true },
+  ];
+  const q = removeTransition(p, 1);
+  assert.deepEqual(q.transitions, [[2, 2.5]]);
+  assert.deepEqual(q.rejectedCuts, [[5, 5.04]]);
+  assert.equal(q.frames[2].breakBefore, undefined);
+  assert.equal(q.frames[0].breakBefore, true);
+  assert.equal(p.frames[2].breakBefore, true);
+  assert.deepEqual(parseProject(JSON.parse(JSON.stringify(q))).rejectedCuts, [[5, 5.04]]);
+  assert.throws(() => parseProject({ ...q, rejectedCuts: [[3, 1]] }));
 });

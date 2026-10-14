@@ -28,10 +28,10 @@ are not independent ground truth until checked by a knowledgeable reviewer.
 
 ### Comparing strokes
 
-Choose **Comparar** in the left toolbar. **Pagaiada a pagaiada** lets you select
-two strokes (optionally filtering by side), compare their contact, recovery and
-cycle times, and replay either one. **Esquerda / direita** shows each side's mean,
-sample count and range, plus the signed right-minus-left difference.
+Choose **Comparar** in the left toolbar. It says in one sentence whether one blade
+stays in the water longer, with a small table of each side's mean contact,
+recovery and cycle time. Below, every stroke is a bar (contact solid, recovery
+faded); click one to replay it.
 
 A contact time needs a confirmed catch/exit pair. Recovery and cycle duration
 also need the next same-side catch and one confirmed opposite catch in between.

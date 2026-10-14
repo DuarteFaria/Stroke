@@ -22,7 +22,6 @@ export default function Pose3D({ project, time, available }: { project: Project;
   const color = (j: number) => [11, 13, 15, 23].includes(j) ? '#4ee08a' : [12, 14, 16, 24].includes(j) ? '#3fc8ff' : '#f2ede0';
   const preset = (y: number, p: number) => { setYaw(y); setPitch(p); };
   return <section className="pose3d" aria-label="Vista 3D experimental">
-    <header><h2>Movimento 3D</h2><span>Experimental</span></header>
     <p>Estimativa do tronco e braços · {time.toFixed(2)} s · {stabilized ? 'Estabilizada' : 'Original'}</p>
     <div className="pose3d-presets" aria-label="Orientação da vista">
       <button onClick={() => preset(0, 0)}>Original</button>

@@ -1,7 +1,8 @@
 """Loopback-only video analysis. Uploaded temporary videos are deleted after each job."""
 from pathlib import Path
 from contextlib import ExitStack
-import math, os, tempfile, threading, uuid, time, secrets, sys, json
+import math, os, tempfile, threading, uuid, time, secrets, sys, json, statistics
+from collections import deque
 import cv2
 import mediapipe as mp
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
@@ -71,6 +72,23 @@ def validate_transitions(value):
     return value
 
 
+# Hard camera cuts between consecutive samples. On a 1080p broadcast clip the
+# neighbour distance sits near .07 and peaks at .28 (splashes, pans, fades);
+# real cuts measured .44-1. The contrast rule keeps busy shots from firing.
+CUT_DISTANCE=.35
+CUT_CONTRAST=3
+CUT_MERGE=.3
+
+
+def frame_signature(bgr):
+    small=cv2.resize(bgr,(64,36),interpolation=cv2.INTER_AREA)
+    return cv2.calcHist([cv2.cvtColor(small,cv2.COLOR_BGR2HSV)],[0,1],None,[16,8],[0,180,0,256])
+
+
+def is_cut(distance,recent):
+    return distance>=CUT_DISTANCE and (not recent or distance>=CUT_CONTRAST*statistics.median(recent))
+
+
 def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=None,follow=False,quality='standard',transitions=None):
     transitions=validate_transitions(transitions or [])
     if quality not in ('standard','detailed'): raise ValueError('Unknown analysis quality.')
@@ -88,7 +106,7 @@ def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=Non
     options=mp.tasks.vision.PoseLandmarkerOptions(base_options=mp.tasks.BaseOptions(model_asset_path=str(model)),running_mode=mp.tasks.vision.RunningMode.VIDEO,num_poses=1,min_pose_detection_confidence=.4,min_pose_presence_confidence=.4,min_tracking_confidence=.5)
     # Decode each source frame; inference is sampled at the selected cap. Preserve decoder timestamps.
     step=max(1,math.ceil(meta['fps']/max_fps)); first=math.ceil(start*meta['fps']); last=min(meta['frameCount']-1,math.floor(end*meta['fps']))
-    previous_ms=-1
+    previous_ms=-1; previous_signature=None; recent=deque(maxlen=15); cuts=[]
     try:
         cap.set(cv2.CAP_PROP_POS_FRAMES,first)
         with ExitStack() as detector_scope:
@@ -106,8 +124,27 @@ def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=Non
                 ms=max(previous_ms+1,round(t*1000)); previous_ms=ms
                 crossed=any(last_t<a<=t for a,b in transitions)
                 excluded=any(a<=t<=b for a,b in transitions)
-                last_t=t
+                previous_t,last_t=last_t,t
                 reset_pending=reset_pending or crossed or excluded
+                # Every sample feeds the signature, even inside transitions, so
+                # distances always compare neighbours. Decoding is already paid.
+                signature=frame_signature(bgr)
+                if previous_signature is not None:
+                    distance=cv2.compareHist(previous_signature,signature,cv2.HISTCMP_BHATTACHARYYA)
+                    # A detected cut restarts tracking like a crossed transition.
+                    # Inside a user transition it only restarts: the user's
+                    # range already stands for it. Just beside one, the cut
+                    # reaches over to it, so the two become a single range.
+                    if not reset_pending and is_cut(distance,recent) and t>previous_t:
+                        reset_pending=True
+                        if not any(a<=t and previous_t<=b for a,b in transitions):
+                            cut=[previous_t,t]
+                            for a,b in transitions:
+                                if a-CUT_MERGE<=t and previous_t<=b+CUT_MERGE: cut=[min(cut[0],a),max(cut[1],b)]
+                            if cuts and cut[0]-cuts[-1][1]<=CUT_MERGE: cuts[-1][1]=max(cuts[-1][1],cut[1])
+                            else: cuts.append(cut)
+                    recent.append(distance)
+                previous_signature=signature
                 if excluded:
                     frames.append({'t':t,'points':None,'transition':True,'quality':quality,'model':model.name})
                     progress(min(99,round((index-first+1)/max(1,last-first+1)*100)))
@@ -145,7 +182,7 @@ def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=Non
                 progress(min(99,round((index-first+1)/max(1,last-first+1)*100)))
     finally: cap.release()
     detected=sum(f['points'] is not None for f in frames)
-    return {**meta,'frames':frames,'start':start,'end':end,'sampleFps':meta['fps']/step,'detected':detected,'total':len(frames)}
+    return {**meta,'frames':frames,'start':start,'end':end,'sampleFps':meta['fps']/step,'detected':detected,'total':len(frames),'cuts':cuts}
 
 def run_job(job_id,path,start,end,region=None,follow=False,quality='standard',transitions=None):
     job=JOBS[job_id]
