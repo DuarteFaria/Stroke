@@ -2259,7 +2259,28 @@ textarea {
 .studio[data-present] .rail,
 .studio[data-present] .inspector,
 .studio[data-present] .dock-context,
-.studio[data-present] .lane:not(.lane-ruler) {
+.studio[data-present] .lane:not(.lane-ruler),
+.dock[data-folded] .dock-context,
+.dock[data-folded] .lane:not(.lane-ruler) {
+  display: none;
+}
+.dock .fold {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  height: 16px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  transform: translate(-50%, -50%);
+}
+.dock .fold:hover {
+  color: var(--text);
+}
+.studio[data-present] .dock .fold {
   display: none;
 }
 .studio[data-present] .workspace {
