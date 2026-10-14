@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyProject, parseProject } from '../lib/motion.ts';
+import { emptyProject, parseProject, shotAt } from '../lib/motion.ts';
 import {
   HOLD,
   FADE,
@@ -79,6 +79,21 @@ test('a pinned drawing shows from its moment for the hold window, fading only wh
   assert.ok(visibility(d, 2 + HOLD - FADE / 2, true) > 0 && visibility(d, 2 + HOLD - FADE / 2, true) < 1);
   assert.equal(visibility(d, 2 + HOLD + 0.01), 0);
   assert.equal(visibility(arrow({ whole: true }), 9), 1);
+});
+test('a whole-shot drawing ends at the next camera cut or transition', () => {
+  const cuts = [[4, 4.04], [7, 8]];
+  assert.deepEqual(shotAt(2, cuts, 10), [0, 4]);
+  assert.deepEqual(shotAt(5, cuts, 10), [4.04, 7]);
+  assert.deepEqual(shotAt(9, cuts, 10), [8, 10]);
+  assert.deepEqual(shotAt(7.5, cuts, 10), [7, 8]);
+  assert.deepEqual(shotAt(3, [], 10), [0, 10]);
+  const d = arrow({ whole: true });
+  assert.equal(visibility(d, 0, false, cuts), 1);
+  assert.equal(visibility(d, 3.9, false, cuts), 1);
+  assert.equal(visibility(d, 5, false, cuts), 0);
+  assert.equal(visibility(d, 9, false, cuts), 0);
+  assert.equal(visibility(arrow({ whole: true, t: 5 }), 6, false, cuts), 1);
+  assert.equal(visibility(arrow({ whole: true, t: 5 }), 2, false, cuts), 0);
 });
 test('angles are measured on the picture, not in normalised units', () => {
   assert.equal(Math.round(angleDeg({ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, 100, 100)), 90);

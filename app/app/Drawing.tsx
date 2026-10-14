@@ -70,6 +70,7 @@ type Ask = {
 };
 type LayerApi = { cancel: () => boolean };
 const NONE: Drawing[] = [];
+const NO_RANGES: [number, number][] = [];
 const JOINT_IDS = Object.keys(JOINTS).map(Number);
 const FAMILY = "Inter, 'Segoe UI', sans-serif";
 /** Laser ink: full strength, then gone about two seconds after it was drawn. */
@@ -135,8 +136,10 @@ export function useDrawing(o: {
     [styleOpen, setStyleOpen] = useState(false);
   const layerRef = useRef<LayerApi | null>(null);
   const drawings = o.project.drawings ?? NONE;
+  const transitions = o.project.transitions ?? NO_RANGES;
   const on = active && o.enabled;
-  const selected = (on && drawings.find((x) => x.id === selectedId && visibility(x, o.time) > 0)) || null;
+  const selected =
+    (on && drawings.find((x) => x.id === selectedId && visibility(x, o.time, false, transitions) > 0)) || null;
   const look: Look = selected
     ? { color: selected.color, size: selected.size, dashed: !!selected.dashed, whole: !!selected.whole }
     : style;
@@ -324,6 +327,7 @@ export function useDrawing(o: {
     pose: o.pose,
     time: o.time,
     playing: o.playing,
+    transitions,
     w: o.project.video.width,
     h: o.project.video.height,
     layerRef,
@@ -480,7 +484,7 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
       for (let i = list.length - 1; i >= 0; i--) {
         const x = list[i];
         if ((x.kind === 'spotlight') !== spots || (opts.only && x.kind !== opts.only) || opts.skip?.has(x.id)) continue;
-        if (visibility(x, d.time) <= 0) continue;
+        if (visibility(x, d.time, false, d.transitions) <= 0) continue;
         const pts = resolvePoints(x, d.pose).map(px);
         if (hitTest(x, pts, P, grabs(x), { font: fontOf(x.size), measure, edge: opts.edge })) return x;
       }
@@ -958,7 +962,7 @@ export function DrawingLayer({ d }: { d: DrawingState }) {
 
   const shown = list
     .filter((x) => editing?.id !== x.id)
-    .map((x) => ({ x, o: visibility(x, d.time, d.playing), P: resolvePoints(x, d.pose).map(px) }))
+    .map((x) => ({ x, o: visibility(x, d.time, d.playing, d.transitions), P: resolvePoints(x, d.pose).map(px) }))
     .filter((s) => s.o > 0);
   if (draft && d.on) shown.push({ x: draft, o: 1, P: resolvePoints(draft, d.pose).map(px) });
   /** The angle being placed, finished with wherever the pointer is. */
@@ -1216,7 +1220,7 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
         >
           <i className="drawing-more-swatch" style={{ background: look.color }} />
           <i className="drawing-more-width" style={{ height: look.size * 2 }} />
-          <span>{look.whole ? 'Clip' : 'Momento'}</span>
+          <span>{look.whole ? 'Plano' : 'Momento'}</span>
         </button>
         <div className="drawing-style">
           <span className="drawing-group">
@@ -1267,10 +1271,10 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
             </button>
             <button
               aria-pressed={look.whole}
-              title="Fica visível no clip inteiro"
+              title="Fica visível até ao próximo corte de câmara ou transição"
               onClick={() => d.apply({ whole: true })}
             >
-              Clip inteiro
+              Plano inteiro
             </button>
           </fieldset>
         </div>

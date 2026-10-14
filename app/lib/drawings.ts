@@ -1,4 +1,4 @@
-import type { Point } from './motion.ts';
+import { shotAt, type Point } from './motion.ts';
 /**
  * Drawings over the video ("telestrator"). Coordinates are normalised 0–1 like
  * the skeleton. A point may remember the joint it was snapped to: while that
@@ -100,9 +100,21 @@ export const isDark = (color: string) => {
 export function newId() {
   return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
-/** 0 hidden, 1 fully shown. Only fades during playback, never on a paused frame. */
-export function visibility(d: Drawing, time: number, playing = false): number {
-  if (d.whole) return 1;
+/**
+ * 0 hidden, 1 fully shown. Only fades during playback, never on a paused frame.
+ * A whole-clip drawing stays up for its shot: a camera cut or other transition
+ * ends it, since the athlete is somewhere else in the next one.
+ */
+export function visibility(
+  d: Drawing,
+  time: number,
+  playing = false,
+  transitions: [number, number][] = [],
+): number {
+  if (d.whole) {
+    const [a, b] = shotAt(d.t, transitions);
+    return time >= a - EARLY && time <= b + EARLY ? 1 : 0;
+  }
   const dt = time - d.t;
   if (dt < -EARLY || dt > HOLD) return 0;
   if (!playing || dt <= HOLD - FADE) return 1;

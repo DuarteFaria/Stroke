@@ -294,10 +294,19 @@ export default function Studio() {
   // Apresentar: só o vídeo e o transporte, para mostrar ao atleta.
   const [present, setPresent] = useState(false);
   const reviewLoop = useRef<[number, number] | null>(null);
+  // A velocidade de antes de rever uma pagaiada, para voltar a ela no fim.
+  const speedBefore = useRef<string | null>(null);
+  /** Acaba a revisão de uma pagaiada: deixa de repetir e repõe a velocidade. */
+  function endReview() {
+    reviewLoop.current = null;
+    if (speedBefore.current === null) return;
+    setSpeed(speedBefore.current);
+    speedBefore.current = null;
+  }
   const [transitionStart, setTransitionStart] = useState<number | null>(null);
   const regionStart = useRef<Point | null>(null);
   function setSrc(value: string) {
-    reviewLoop.current = null;
+    endReview();
     setTransitionStart(null);
     setVideoSrc(value);
     setSelectingRegion(false);
@@ -339,7 +348,7 @@ export default function Studio() {
     setP(next);
   };
   function seek(t: number) {
-    reviewLoop.current = null;
+    endReview();
     const v = video.current;
     if (v && src && !busy) {
       v.pause();
@@ -529,8 +538,10 @@ export default function Studio() {
   }
   function replayStroke(a: number, b: number) {
     if (!video.current || !src || busy || b <= a) return;
+    const before = speedBefore.current ?? speed;
     seek(a);
     reviewLoop.current = [a, b];
+    speedBefore.current = before;
     setSpeed('0.25');
     video.current.playbackRate = .25;
     void video.current.play().catch((error: unknown) => {
@@ -771,7 +782,7 @@ export default function Studio() {
   async function analyze() {
     if (!file || busy || selectingRegion) return;
     video.current?.pause();
-    reviewLoop.current = null;
+    endReview();
     setBusy(true);
     setProgress(0);
     cancelled.current = false;
@@ -1346,7 +1357,11 @@ export default function Studio() {
         <Choice
           label="Velocidade"
           value={speed}
-          onChange={setSpeed}
+          onChange={(v) => {
+            // Escolher outra a meio da revisão fica para depois dela.
+            speedBefore.current = null;
+            setSpeed(v);
+          }}
           items={[
             ['0.25', '¼×'],
             ['0.5', '½×'],

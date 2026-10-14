@@ -4,6 +4,8 @@ import { Flag, X, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   JOINTS,
   clamp,
+  shotAt,
+  transitionAt,
   type EventMark,
   type Key,
   type MotionFlag,
@@ -108,8 +110,21 @@ export default function Timeline({
   // A última marcação posta: fica escrita na linha em vez de abrir a marcação,
   // para se poderem pôr várias seguidas.
   const [placed, setPlaced] = useState<EventMark | null>(null);
-  // Enquanto se arrasta uma pega o eixo fica parado, senão fugia ao rato.
-  const [held, setHeld] = useState<{ edge: 'in' | 'out'; view: [number, number] } | null>(null);
+  // Enquanto se arrasta uma pega ou uma marcação o eixo fica parado, senão
+  // fugia ao rato.
+  const [held, setHeld] = useState<{ edge: 'in' | 'out' | 'mark'; view: [number, number] } | null>(
+    null,
+  );
+  // Uma marcação a ser arrastada: só se grava ao largar, num só passo.
+  const [drag, setDrag] = useState<{
+    id: string;
+    x: number;
+    from: number;
+    t: number;
+    moved: boolean;
+  } | null>(null);
+  // Largar depois de arrastar não conta como carregar na marcação.
+  const dragged = useRef(false);
   const scrubbing = useRef(false);
   const lanesRef = useRef<HTMLDivElement>(null);
   const unavailable = busy || !hasVideo;
@@ -118,6 +133,20 @@ export default function Timeline({
   const [s0, s1] = p.segment;
   const segLength = s1 - s0;
   const inSegment = time >= s0 - 0.001 && time <= s1 + 0.001;
+  const transitions = p.transitions || [];
+  // Numa transição não se rema: não há pagaiadas para marcar.
+  const inTransition = !!transitionAt(time, transitions);
+  /** Uma marcação não fica numa transição: encosta à ponta de onde vinha. */
+  const clear = (t: number, from: number) => {
+    const r = transitionAt(t, transitions);
+    if (!r) return t;
+    return from <= r[0] ? r[0] - 1 / fps : r[1] + 1 / fps;
+  };
+  /** Onde fica uma marcação posta em `t`: no trecho, num fotograma, fora das transições. */
+  const markAt = (t: number, from: number) => {
+    const hi = Math.min(s1, p.video.duration - 1 / fps);
+    return clamp(clear(clamp(Math.round(t * fps) / fps, s0, hi), from), s0, hi);
+  };
 
   // ------------------------------------------------------------------ axis
   // Sem janela escolhida, as pistas mostram o trecho analisado (ou o vídeo).
@@ -252,6 +281,7 @@ export default function Timeline({
 
   // ------------------------------------------------------------ markers
   const events = p.events
+    .map((e) => (drag?.moved && drag.id === e.id ? { ...e, t: drag.t } : e))
     .filter((e) => e.review !== 'skipped' && e.t >= s0 && e.t <= s1)
     .sort((a, b) => a.t - b.t);
   const active =
@@ -273,10 +303,56 @@ export default function Timeline({
     });
   const move = (t: number) => {
     if (!active) return;
-    const next = Math.max(s0, Math.min(t, s1, p.video.duration - 1 / fps));
+    const next = markAt(t, active.t);
     patch(active, { t: next, source: 'manual', review: 'suggested' });
     seek(next);
   };
+  /**
+   * Tirar uma marcação. Uma sugestão automática fica guardada como
+   * ignorada, para voltar a analisar não a trazer de volta.
+   */
+  const removeMark = (e: EventMark) =>
+    commit({
+      ...p,
+      events:
+        e.source === 'automatic'
+          ? p.events.map((x) => (x.id === e.id ? { ...x, review: 'skipped' as const } : x))
+          : p.events.filter((x) => x.id !== e.id),
+    });
+  /** Arrastar uma marcação na pista muda o seu tempo; o vídeo vai mostrando onde. */
+  const draggable = (e: EventMark) => ({
+    onPointerDown(ev: React.PointerEvent<HTMLButtonElement>) {
+      if (unavailable || ev.button !== 0) return;
+      ev.stopPropagation();
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      dragged.current = false;
+      setDrag({ id: e.id, x: ev.clientX, from: e.t, t: e.t, moved: false });
+    },
+    onPointerMove(ev: React.PointerEvent<HTMLButtonElement>) {
+      if (drag?.id !== e.id || (!drag.moved && Math.abs(ev.clientX - drag.x) < 4)) return;
+      const t = markAt(timeAt(ev.clientX, ev.currentTarget.parentElement!), drag.from);
+      if (!drag.moved) setHeld({ edge: 'mark', view });
+      if (t !== drag.t || !drag.moved) seek(t);
+      setDrag({ ...drag, t, moved: true });
+    },
+    onPointerUp() {
+      if (drag?.id !== e.id) return;
+      setDrag(null);
+      setHeld(null);
+      if (!drag.moved) return;
+      dragged.current = true;
+      const original = p.events.find((x) => x.id === e.id);
+      if (original && Math.abs(drag.t - drag.from) > 1e-6)
+        patch(original, { t: drag.t, source: 'manual', review: 'confirmed' });
+      setPicked({ kind: 'event', id: e.id });
+      setPlaced(null);
+      setAdjusting(false);
+    },
+    onPointerCancel() {
+      setDrag(null);
+      setHeld(null);
+    },
+  });
   /** A seguinte à última marcação antes do cursor, pela ordem de MARKS. */
   const prev = events.filter((e) => e.t <= time + 0.5 / fps).at(-1);
   const next = prev
@@ -287,6 +363,7 @@ export default function Timeline({
    * acabou de pôr. Carregar duas vezes no mesmo fotograma não a duplica.
    */
   const add = (side: EventMark['side'], kind: EventMark['kind']) => {
+    if (inTransition) return;
     const same = p.events.find(
       (x) =>
         x.review !== 'skipped' &&
@@ -315,12 +392,28 @@ export default function Timeline({
     setPicked(null);
     setAdjusting(false);
   };
-  /** 1–4 marcam (pela ordem de MARKS); Esc fecha a marcação escolhida. */
+  /**
+   * 1–4 marcam (pela ordem de MARKS); Esc fecha a marcação escolhida e
+   * Delete (ou Backspace) apaga-a, ou a que acabou de ser posta.
+   */
   const keyboard = useEffectEvent((e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (el.closest('input,textarea,select,[contenteditable="true"],[role="dialog"]')) return;
     if (e.key === 'Escape') {
+      close();
+      return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !unavailable && !keysOff) {
+      const last = placed && p.events.find((x) => x.id === placed.id && x.review !== 'skipped');
+      if (active) removeMark(active);
+      else if (pickedRange && picked?.kind === 'transition')
+        commit({ ...p, transitions: transitions.filter((_, j) => j !== picked.index) });
+      else if (last) {
+        removeMark(last);
+        setPlaced(null);
+      } else return;
+      e.preventDefault();
       close();
       return;
     }
@@ -330,7 +423,7 @@ export default function Timeline({
       return;
     }
     const mark = MARKS.find((m) => m.key === e.key);
-    if (!mark || unavailable || !inSegment || adjusting || keysOff) return;
+    if (!mark || unavailable || !inSegment || inTransition || adjusting || keysOff) return;
     e.preventDefault();
     add(mark.side, mark.kind);
   });
@@ -416,14 +509,20 @@ export default function Timeline({
     else out.push({ t: f.t, list: [f] });
     return out;
   }, []);
-  const transitions = p.transitions || [];
   /** Desenhos presos a um momento; vários quase juntos contam como um. */
   const drawingTimes = (drawings ?? [])
     .filter((x) => !x.whole)
     .map((x) => x.t)
     .sort((a, b) => a - b)
     .reduce<number[]>((out, t) => (out.length && t - out[out.length - 1] <= 0.05 ? out : [...out, t]), []);
-  const outside = !hasVideo || !inSegment;
+  /** Desenhos de um plano inteiro: uma barra por plano que tenha algum. */
+  const drawingShots = (drawings ?? [])
+    .filter((x) => x.whole)
+    .map((x) => ({ t: x.t, shot: shotAt(x.t, transitions, duration) }))
+    .sort((a, b) => a.shot[0] - b.shot[0])
+    .filter((x, i, all) => i === 0 || all[i - 1].shot[0] !== x.shot[0]);
+  const drawingCount = drawingTimes.length + drawingShots.length;
+  const outside = !hasVideo || !inSegment || inTransition;
 
   return (
     <section className="dock" aria-label="Linha do tempo">
@@ -463,8 +562,9 @@ export default function Timeline({
                 </button>
                 <button
                   disabled={unavailable}
+                  title="Remover a marcação (Delete)"
                   onClick={() => {
-                    patch(active, { review: 'skipped' });
+                    removeMark(active);
                     seek(active.t);
                     close();
                   }}
@@ -491,7 +591,7 @@ export default function Timeline({
                 >
                   +1 fotograma
                 </button>
-                <button disabled={unavailable || !inSegment} onClick={() => move(time)}>
+                <button disabled={unavailable || !inSegment || inTransition} onClick={() => move(time)}>
                   Marcar aqui
                 </button>
                 <select
@@ -558,6 +658,7 @@ export default function Timeline({
             </button>
             <button
               disabled={busy}
+              title="Remover a transição (Delete)"
               onClick={() => {
                 commit({
                   ...p,
@@ -605,7 +706,7 @@ export default function Timeline({
             {placed && p.events.some((x) => x.id === placed.id && x.review !== 'skipped') && (
               <small className="ctx-why placed" key={placed.id}>
                 <i className={`side-dot side-${placed.side}`} />
-                {eventName(placed)} em {placed.t.toFixed(2)} s · Ctrl+Z anula
+                {eventName(placed)} em {placed.t.toFixed(2)} s · Delete apaga
               </small>
             )}
             <span className="ctx-sep" />
@@ -630,6 +731,9 @@ export default function Timeline({
             )}
             {hasVideo && !busy && !inSegment && (
               <small className="ctx-why">Fora do trecho</small>
+            )}
+            {hasVideo && !busy && inSegment && inTransition && (
+              <small className="ctx-why">Numa transição: aqui não se marca</small>
             )}
           </>
         )}
@@ -736,12 +840,17 @@ export default function Timeline({
                   key={e.id}
                   className={`marker marker-${e.kind === 'Catch' ? 'entry' : 'exit'}`}
                   data-reviewed={reviewed(e)}
+                  data-dragging={(drag?.moved && drag.id === e.id) || undefined}
                   aria-pressed={active?.id === e.id}
                   style={{ left: at(e.t) }}
                   disabled={unavailable}
-                  title={`${eventName(e)} · ${e.t.toFixed(2)} s · ${reviewed(e) ? 'confirmada' : 'por rever'}`}
+                  title={`${eventName(e)} · ${e.t.toFixed(2)} s · ${reviewed(e) ? 'confirmada' : 'por rever'} — arrasta para mover`}
                   aria-label={`${eventName(e)} em ${e.t.toFixed(2)} segundos, ${reviewed(e) ? 'confirmada' : 'por rever'}`}
-                  onClick={() => choose(e)}
+                  {...draggable(e)}
+                  onClick={() => {
+                    if (dragged.current) dragged.current = false;
+                    else choose(e);
+                  }}
                 >
                   {e.kind === 'Catch' ? '↓' : '↑'}
                 </button>
@@ -787,7 +896,7 @@ export default function Timeline({
           {transitions.map(([a, b], i) => !spans(a, b) ? null : (
             <button
               key={`${a}-${b}`}
-              className="transition"
+              className={(b - a) / span < 0.008 ? 'transition cut' : 'transition'}
               aria-label={`Transição ${fmt(a)} – ${fmt(b)}`}
               aria-pressed={picked?.kind === 'transition' && picked.index === i}
               style={{ left: at(a), width: width(a, b) }}
@@ -810,7 +919,18 @@ export default function Timeline({
             />
           )}
         </Lane>
-        <Lane name="Desenhos" className="lane-sketches" empty={!drawingTimes.length} note={<small>{drawingTimes.length}</small>} track={track}>
+        <Lane name="Desenhos" className="lane-sketches" empty={!drawingCount} note={<small>{drawingCount}</small>} track={track}>
+          {drawingShots.filter(({ shot: [a, b] }) => spans(a, b)).map(({ t, shot: [a, b] }) => (
+            <button
+              key={`shot-${a}`}
+              className="sketch-shot"
+              style={{ left: at(a), width: width(a, b) }}
+              disabled={unavailable}
+              title={`Desenho no plano ${fmt(a)} – ${fmt(b)}`}
+              aria-label={`Ir para o desenho do plano ${fmt(a)} – ${fmt(b)}`}
+              onClick={() => seek(t)}
+            />
+          ))}
           {drawingTimes.filter(seen).map((t) => (
             <button
               key={t}

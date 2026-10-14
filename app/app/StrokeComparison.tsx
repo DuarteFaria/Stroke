@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { type Project } from '@/lib/motion';
+import { shotAt, type Project } from '@/lib/motion';
 import { comparisonStats, comparisonStrokes, type ComparedStroke } from '@/lib/strokes';
 
 const SIDES = [['Left', 'Esq.'], ['Right', 'Dir.']] as const;
+const clock = (t: number) => `${Math.floor(t / 60)}:${Math.floor(t % 60).toString().padStart(2, '0')}`;
 const seconds = (value: number | null) => value === null ? '—' : `${value.toFixed(2)} s`;
 const metrics = [{key: 'water', label: 'Na água'}, {key: 'recovery', label: 'Recuperação'}, {key: 'cycle', label: 'Ciclo'}] as const;
 
@@ -36,6 +37,25 @@ export default function StrokeComparison({project: p, disabled, replay}: {
   const scale = Math.max(...strokes.map(s => s.cycle ?? s.water));
   const anyRecovery = strokes.some(s => s.recovery !== null);
   const pct = (v: number) => `${v / scale * 100}%`;
+  // Com cortes de câmara, as pagaiadas agrupam-se pelo plano onde começam.
+  const shots = strokes.reduce<{ shot: [number, number]; list: ComparedStroke[] }[]>((out, s) => {
+    const shot = shotAt(s.start, p.transitions, p.video.duration);
+    const last = out[out.length - 1];
+    if (last && last.shot[0] === shot[0]) last.list.push(s);
+    else out.push({ shot, list: [s] });
+    return out;
+  }, []);
+  const bar = (s: ComparedStroke) => <li key={s.id}>
+    <button className={`side-${s.side}`} disabled={disabled} onClick={() => replay(s.start, s.end ?? s.exit)}
+      title={`Rever a pagaiada em ${s.start.toFixed(2)} s · na água ${seconds(s.water)}${s.recovery !== null ? ` · recuperação ${seconds(s.recovery)}` : ''}`}>
+      <span className="bar-name"><i className="side-dot" />{SIDES.find(x => x[0] === s.side)![1]} {bySide[s.side === 'Left' ? 0 : 1].indexOf(s) + 1}</span>
+      <span className="bar-track">
+        <span className="bar-water" style={{width: pct(s.water)}} />
+        {s.recovery !== null && <span className="bar-recovery" style={{width: pct(s.recovery)}} />}
+      </span>
+      <span className="bar-value">{seconds(s.water)}</span>
+    </button>
+  </li>;
   return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar pagaiadas">
     {say && <p className="comparison-verdict">{say}</p>}
     <table className="comparison-table">
@@ -47,19 +67,11 @@ export default function StrokeComparison({project: p, disabled, replay}: {
       </tbody>
     </table>
     <h3 className="comparison-sub">Cada pagaiada</h3>
-    <ol className="stroke-bars">
-      {strokes.map((s: ComparedStroke) => <li key={s.id}>
-        <button className={`side-${s.side}`} disabled={disabled} onClick={() => replay(s.start, s.end ?? s.exit)}
-          title={`Rever a pagaiada em ${s.start.toFixed(2)} s · na água ${seconds(s.water)}${s.recovery !== null ? ` · recuperação ${seconds(s.recovery)}` : ''}`}>
-          <span className="bar-name"><i className="side-dot" />{SIDES.find(x => x[0] === s.side)![1]} {bySide[s.side === 'Left' ? 0 : 1].indexOf(s) + 1}</span>
-          <span className="bar-track">
-            <span className="bar-water" style={{width: pct(s.water)}} />
-            {s.recovery !== null && <span className="bar-recovery" style={{width: pct(s.recovery)}} />}
-          </span>
-          <span className="bar-value">{seconds(s.water)}</span>
-        </button>
-      </li>)}
-    </ol>
+    {shots.length < 2 ? <ol className="stroke-bars">{strokes.map(bar)}</ol> : shots.map(({shot: [a, b], list}, i) =>
+      <section key={a} className="stroke-shot" aria-label={`Plano ${i + 1}`}>
+        <h4>Plano {i + 1} <span>{clock(a)}–{clock(b)} · {list.length}</span></h4>
+        <ol className="stroke-bars">{list.map(bar)}</ol>
+      </section>)}
     <p className="comparison-note">
       {anyRecovery && <><i className="key-water" /> na água <i className="key-recovery" /> recuperação · </>}
       Carrega numa pagaiada para a rever. Só contam marcações confirmadas.

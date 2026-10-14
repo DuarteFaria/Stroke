@@ -663,6 +663,9 @@ h3 {
 .comparison-table thead .side-dot { display: inline-block; margin-right: 6px; }
 .comparison-table .comparison-count th, .comparison-table .comparison-count td { border-bottom: 0; color: var(--faint); font-size: 12px; }
 .stroke-comparison .comparison-sub { margin: 18px 0 6px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.stroke-shot h4 { display: flex; gap: 6px; margin: 10px 4px 2px; font-size: 11.5px; font-weight: 600; }
+.stroke-shot h4 span { color: var(--muted); font-weight: 400; }
+.stroke-shot .stroke-bars { margin-bottom: 0; }
 .stroke-bars { display: grid; gap: 2px; margin: 0 0 10px; padding: 0; list-style: none; }
 .stroke-bars button { display: grid; grid-template-columns: 52px 1fr 46px; align-items: center; gap: 8px; width: 100%; min-height: 26px; padding: 3px 4px; border-color: transparent; background: none; color: var(--muted); font-size: 12px; }
 .stroke-bars button:hover:not(:disabled) { background: var(--control-hover); }
@@ -1641,6 +1644,14 @@ textarea {
     0 0 0 2px var(--panel),
     0 0 0 3px var(--text);
 }
+.lane-track .marker {
+  cursor: grab;
+  touch-action: none;
+}
+.lane-track .marker[data-dragging] {
+  z-index: 3;
+  cursor: grabbing;
+}
 .lane-track .key {
   --bg: var(--muted);
   top: 50%;
@@ -1683,6 +1694,19 @@ textarea {
   border-style: dashed;
   background: none;
   pointer-events: none;
+}
+/* A camera cut is a frame or two wide: a solid line, not a tiny box. */
+.lane-track .transition.cut {
+  --bg: var(--muted);
+  width: 3px;
+  min-width: 0;
+  margin-left: -1.5px;
+  border: 0;
+  border-radius: 1px;
+}
+.lane-track .transition.cut[aria-pressed='true'] {
+  --bg: var(--text);
+  box-shadow: none;
 }
 /* The playhead and the part outside the trecho run across every lane. */
 .lanes-axis {
@@ -2202,6 +2226,14 @@ textarea {
   height: 8px;
   margin: -4px 0 0 -4px;
   border-radius: 50%;
+}
+/* A drawing kept for its whole shot: a thin bar across the shot. */
+.lane-track .sketch-shot {
+  --bg: color-mix(in srgb, var(--text) 30%, transparent);
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
 }
 /* The drawing's own "Desenhar" button floats top-right in presentation;
    the angle chips step down below it. */

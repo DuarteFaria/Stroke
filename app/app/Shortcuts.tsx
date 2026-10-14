@@ -20,6 +20,7 @@ const GROUPS: [string, Row[]][] = [
     [
       [[['1'], ['2']], 'entrada e saída da pá esquerda'],
       [[['3'], ['4']], 'entrada e saída da pá direita'],
+      [[['Delete'], ['Backspace']], 'apaga a marcação escolhida (arrasta-a para a mover)'],
       [[['Esc']], 'larga a marcação escolhida'],
     ],
   ],

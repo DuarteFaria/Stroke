@@ -306,6 +306,28 @@ export function mergeRanges(...lists: [number, number][][]): [number, number][] 
   }
   return merged;
 }
+/**
+ * The shot around `t`: from the end of the transition before it to the start
+ * of the next one. A time inside a transition belongs to that transition.
+ */
+export function shotAt(
+  t: number,
+  transitions: [number, number][] = [],
+  duration = Infinity,
+): [number, number] {
+  const inside = transitions.find(([a, b]) => t >= a && t <= b);
+  if (inside) return [inside[0], inside[1]];
+  let start = 0,
+    end = duration;
+  for (const [a, b] of transitions) {
+    if (b < t) start = Math.max(start, b);
+    else if (a > t) end = Math.min(end, a);
+  }
+  return [start, end];
+}
+/** The transition `t` falls in, if any. */
+export const transitionAt = (t: number, transitions: [number, number][] = []) =>
+  transitions.find(([a, b]) => t >= a && t <= b);
 export function emptyProject(): Project {
   return {
     version: 2,
