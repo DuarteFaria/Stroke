@@ -13,8 +13,9 @@ contextBridge.exposeInMainWorld('strokeDesktop', {
   dirty: (value) => ipcRenderer.send('stroke:dirty', value),
   theme: (value) => ipcRenderer.send('stroke:theme', value),
   installUpdate: () => ipcRenderer.invoke('stroke:installUpdate'),
+  retryUpdate: () => ipcRenderer.invoke('stroke:retryUpdate'),
   onUpdate: (fn) => {
-    const listener = (_event, version) => fn(version);
+    const listener = (_event, update) => fn(update);
     ipcRenderer.on('stroke:update', listener);
     return () => ipcRenderer.removeListener('stroke:update', listener);
   },

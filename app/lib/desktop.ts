@@ -1,9 +1,17 @@
 export type DesktopVideo = { id: string; name: string; size: number; url: string };
 export type DesktopProject = { id: string; text: string };
+export type DesktopUpdate = {
+  state: 'downloading' | 'ready' | 'error';
+  version: string;
+  notes: string[];
+  percent: number;
+  transferred: number;
+  total: number;
+};
 declare global {
   interface Window {
     strokeDesktop?: {
-      config(): Promise<{ api: string; token: string; version: string; update: string | null }>;
+      config(): Promise<{ api: string; token: string; version: string; update: DesktopUpdate | null }>;
       openProject(): Promise<DesktopProject | null>;
       adoptProject(id: string): Promise<DesktopVideo | null>;
       openVideo(): Promise<DesktopVideo | null>;
@@ -17,7 +25,8 @@ declare global {
       dirty(value: boolean): void;
       theme(value: 'light' | 'dark'): void;
       installUpdate(): Promise<void>;
-      onUpdate(fn: (version: string) => void): () => void;
+      retryUpdate(): Promise<void>;
+      onUpdate(fn: (update: DesktopUpdate | null) => void): () => void;
     };
   }
 }

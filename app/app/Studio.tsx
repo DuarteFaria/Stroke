@@ -4,6 +4,7 @@ import StrokeComparison from './StrokeComparison';
 import Pose3D from './Pose3D';
 import { useDrawing, DrawingLayer, DrawingToolbar } from './Drawing';
 import ThemeToggle from './ThemeToggle';
+import UpdateButton from './UpdateButton';
 import Timeline, { fmt, type EditMode } from './Timeline';
 import Shortcuts from './Shortcuts';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
@@ -44,7 +45,6 @@ import {
   Brush,
   Maximize,
   Minimize,
-  RotateCw,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -325,7 +325,6 @@ export default function Studio() {
     regionStart.current = null;
   }
   const [desktopReady, setDesktopReady] = useState(false);
-  const [update, setUpdate] = useState<string | null>(null);
   useLayoutEffect(() => {
     current.current = p;
     timeRef.current = time;
@@ -598,11 +597,6 @@ export default function Studio() {
       if (entry) await loadDesktopProject(entry, true);
     }).catch(e => say(`Não foi possível recuperar: ${String(e)}`, 'warn'))
       .finally(() => setDesktopReady(true));
-  }, []);
-  useEffect(() => {
-    if (!desktop()) return;
-    void desktop()!.config().then(c => setUpdate(c.update));
-    return desktop()!.onUpdate(setUpdate);
   }, []);
   useEffect(() => {
     if (!desktop() || !desktopReady) return;
@@ -1502,15 +1496,7 @@ export default function Studio() {
               </button>
             </span>
           )}
-          {update && (
-            <button
-              onClick={() => desktop()!.installUpdate()}
-              title={`O Stroke ${update} está pronto. Reinicia para instalar, ou instala-se ao fechar.`}
-            >
-              <RotateCw size={15} />
-              Atualizar
-            </button>
-          )}
+          <UpdateButton />
           <span className="history">
             <button
               aria-label="Anular"

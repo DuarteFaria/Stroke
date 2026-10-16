@@ -12,7 +12,7 @@ let win, server, analyzer, origin, api, dirty = false, quitting = false;
 let analyzerReady;
 const launchedAt = performance.now();
 const milestone = name => log(`Startup ${name}: ${Math.round(performance.now() - launchedAt)} ms`);
-let projectPath = null, videoPath = null, updater = null, updateVersion = null, relaunch = false;
+let projectPath = null, videoPath = null, updater = null, update = null, relaunch = false;
 let writeQueue = Promise.resolve();
 const token = randomBytes(32).toString('hex');
 const videos = new Map(), pending = new Map();
@@ -56,6 +56,8 @@ async function videoDescriptor(file) {
   const id = randomUUID(); videos.set(id, file);
   return { id, name: path.basename(file), size: stat.size, url: `${origin}/video/${id}` };
 }
+let checkForUpdates = async () => {};
+function sendUpdate(next) { update = next; win.webContents.send('stroke:update', update); }
 function senderOK(event) { return win && event.sender === win.webContents && event.senderFrame?.url.startsWith(`${origin}/`); }
 function handle(name, fn) {
   ipcMain.handle(`stroke:${name}`, (event, ...args) => {
@@ -64,8 +66,9 @@ function handle(name, fn) {
   });
 }
 function installIPC() {
-  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion(), update: updateVersion }; });
+  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion(), update }; });
   handle('installUpdate', () => { relaunch = true; win.close(); });
+  handle('retryUpdate', () => { sendUpdate({ ...update, state: 'downloading' }); return checkForUpdates(); });
   handle('openProject', async () => {
     const result = await dialog.showOpenDialog(win, { title: 'Abrir projeto', filters: [{ name: 'Projeto Stroke', extensions: ['json'] }], properties: ['openFile'] });
     if (result.canceled) return null;
@@ -254,12 +257,27 @@ else {
         const { autoUpdater } = require('electron-updater');
         autoUpdater.logger = { info: log, warn: log, error: log };
         autoUpdater.autoInstallOnAppQuit = false;
-        autoUpdater.once('update-downloaded', ({ version }) => {
-          log(`Update ${version} downloaded; installing on quit`);
-          updater = autoUpdater; updateVersion = version;
-          win.webContents.send('stroke:update', version);
+        autoUpdater.on('update-available', ({ version, releaseNotes, files }) => {
+          // publish_desktop.py writes CHANGELOG.md's section into latest.yml as one bullet per line.
+          const notes = String(releaseNotes ?? '').split('\n').map(line => line.replace(/^\s*[-*]\s*/, '').trim()).filter(Boolean);
+          sendUpdate({ state: 'downloading', version, notes, percent: 0, transferred: 0, total: files[0]?.size ?? 0 });
         });
-        autoUpdater.checkForUpdates().then(result => result?.downloadPromise).catch(err => log(`Update failed: ${err.message}`));
+        autoUpdater.on('update-not-available', () => { if (update) sendUpdate(null); });
+        autoUpdater.on('download-progress', ({ percent, transferred, total }) => {
+          if (Math.floor(percent) !== update.percent) sendUpdate({ ...update, percent: Math.floor(percent), transferred, total });
+        });
+        autoUpdater.on('update-downloaded', ({ version }) => {
+          log(`Update ${version} downloaded; installing on quit`);
+          updater = autoUpdater;
+          sendUpdate({ ...update, state: 'ready', percent: 100 });
+        });
+        checkForUpdates = () => autoUpdater.checkForUpdates().then(result => result?.downloadPromise).catch(err => {
+          log(`Update failed: ${err.message}`);
+          // Offline at launch stays silent; only a download that had started offers a retry.
+          // The blockmap copy can still reject after update-downloaded; the installer is usable.
+          if (update && update.state !== 'ready') sendUpdate({ ...update, state: 'error' });
+        });
+        void checkForUpdates();
       }
       if (smoke) {
         await new Promise(resolve => setTimeout(resolve, 1500));
