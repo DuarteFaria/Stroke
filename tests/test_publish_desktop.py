@@ -79,3 +79,24 @@ def test_pull_request_cannot_publish(release):
     env['GITHUB_EVENT_NAME'] = 'pull_request'
     with pytest.raises(ValueError, match='trusted'):
         publish(directory, env, dry_run=True)
+
+
+def test_release_notes_reach_the_updater_feed(release):
+    directory, env = release
+    (directory / 'latest.yml').write_text('version: 0.3.1', encoding='utf-8')
+    for _ in range(2):
+        calls, run = fake_github(draft=True)
+        publish(directory, env, run=run)
+    lines = (directory / 'latest.yml').read_text(encoding='utf-8').splitlines()
+    assert lines[0] == 'version: 0.3.1'
+    assert len(lines) == 2 and lines[1].startswith('releaseNotes: "- ')
+
+
+def test_missing_changelog_section_prevents_any_github_call(release, tmp_path):
+    directory, env = release
+    changelog = tmp_path / 'CHANGELOG.md'
+    changelog.write_text('## 0.0.1\n\n- Antiga\n', encoding='utf-8')
+    calls, run = fake_github()
+    with pytest.raises(ValueError, match='CHANGELOG'):
+        publish(directory, env, run=run, changelog=changelog)
+    assert calls == []

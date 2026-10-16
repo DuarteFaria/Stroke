@@ -327,6 +327,45 @@ kbd {
   flex: none;
   background: var(--green);
 }
+.update {
+  gap: 7px;
+  color: var(--muted);
+}
+.update[data-state='downloading'] {
+  cursor: default;
+}
+.update[data-state='downloading']:hover {
+  background: var(--control);
+}
+.update[data-state='ready'] {
+  border-color: var(--primary-line);
+  color: var(--text);
+  font-weight: 620;
+}
+.update > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.update-percent {
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.update-ring {
+  flex: none;
+  fill: none;
+  stroke-width: 2;
+  stroke: var(--control-line);
+}
+.update-ring circle + circle {
+  stroke: var(--text);
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.3s;
+}
 .chip.warn {
   color: var(--warn);
 }
