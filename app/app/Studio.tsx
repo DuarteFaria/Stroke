@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import UpdateButton from './UpdateButton';
 import Timeline, { fmt, type EditMode } from './Timeline';
 import Shortcuts from './Shortcuts';
-import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject } from '@/lib/desktop';
+import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject, type DesktopVideo } from '@/lib/desktop';
 import {
   useState,
   useRef,
@@ -255,7 +255,7 @@ const framed =
 export default function Studio() {
   const [p, setP] = useState<Project>(emptyProject),
     [src, setVideoSrc] = useState(''),
-    [file, setFile] = useState<File | null>(null),
+    [file, setFile] = useState<File | DesktopVideo | null>(null),
     [time, setTime] = useState(0),
     [playing, setPlaying] = useState(false),
     [speed, setSpeed] = useState('0.5'),
@@ -275,7 +275,7 @@ export default function Studio() {
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0),
     [job, setJob] = useState(''),
-    [connected, setConnected] = useState(true),
+    [analyzer, setAnalyzer] = useState<'starting' | 'on' | 'off'>('starting'),
     [confirm, setConfirm] = useState<Confirm | null>(null),
     [confirmOpen, setConfirmOpen] = useState(false),
     [undoCount, setUndoCount] = useState(0),
@@ -394,8 +394,8 @@ export default function Studio() {
   function checkHealth() {
     void analyzerFetch('/health')
       .then((r) => r.json() as Promise<{ ok: boolean; modelReady: boolean }>)
-      .then((x) => setConnected(x.ok && x.modelReady))
-      .catch(() => setConnected(false));
+      .then((x) => setAnalyzer(x.ok && x.modelReady ? 'on' : 'off'))
+      .catch(() => setAnalyzer('off'));
   }
   async function exportProject() {
     const x = current.current;
@@ -428,8 +428,7 @@ export default function Studio() {
     try {
       const selected = await desktop()!.openVideo();
       if (!selected) return;
-      const f = await desktopVideoFile(selected);
-      if (newVideo(f)) {
+      if (newVideo(selected)) {
         if (!relinking) await desktop()!.resetProject();
         await desktop()!.rememberVideo(selected.id);
       }
@@ -463,10 +462,7 @@ export default function Studio() {
     if (!loaded) return;
     const selected = await desktop()!.adoptProject(entry.id);
     if (selected && selected.name === loaded.video.name && selected.size === loaded.video.size) {
-      try {
-        const f = await desktopVideoFile(selected);
-        setFile(f); setSrc(URL.createObjectURL(f));
-      } catch { say('Projeto aberto. Escolhe novamente o vídeo original.', 'warn'); }
+      setFile(selected); setSrc(selected.url);
     }
     if (recovered) { setDirty(true); say('Trabalho recuperado. Guarda o projeto para conservar as alterações.', 'ok'); }
   }
@@ -513,7 +509,7 @@ export default function Studio() {
       'Descartar e abrir',
     );
   }
-  function newVideo(f: File) {
+  function newVideo(f: File | DesktopVideo) {
     if (f.size > 1024 ** 3) {
       say(
         `Ficheiro com ${(f.size / 1024 ** 3).toFixed(1)} GB. O limite é 1 GB.`,
@@ -526,7 +522,7 @@ export default function Studio() {
       return false;
     }
     video.current?.pause();
-    setSrc(URL.createObjectURL(f));
+    setSrc(f instanceof File ? URL.createObjectURL(f) : f.url);
     setFile(f);
     setTime(0);
     setPlacing(null);
@@ -599,11 +595,26 @@ export default function Studio() {
       .finally(() => setDesktopReady(true));
   }, []);
   useEffect(() => {
-    if (!desktop() || !desktopReady) return;
-    desktop()!.dirty(dirty);
-    if (p.video.name) void desktop()!.snapshot(JSON.stringify(p), dirty)
-      .catch(() => say('Não foi possível criar a cópia de recuperação. Guarda o projeto.', 'warn'));
+    if (desktop() && desktopReady) desktop()!.dirty(dirty);
+  }, [dirty, desktopReady]);
+  // A cópia de recuperação serializa o projeto inteiro: escreve-se 1 s depois
+  // da última alteração e nunca a meio de arrastar uma articulação ou o trecho.
+  useEffect(() => {
+    if (!desktop() || !desktopReady || !p.video.name) return;
+    let id = 0;
+    const write = () => {
+      if (drag.current || scrubBefore.current) id = window.setTimeout(write, 1000);
+      else void desktop()!.snapshot(JSON.stringify(p), dirty)
+        .catch(() => say('Não foi possível criar a cópia de recuperação. Guarda o projeto.', 'warn'));
+    };
+    id = window.setTimeout(write, 1000);
+    return () => clearTimeout(id);
   }, [p, dirty, desktopReady]);
+  // Ao fechar, a última alteração ainda pode estar à espera do intervalo.
+  useEffect(() => {
+    if (!desktop() || !desktopReady) return;
+    return desktop()!.onFlush(() => void desktop()!.snapshot(JSON.stringify(current.current), dirtyRef.current));
+  }, [desktopReady]);
   useEffect(() => {
     if (video.current) video.current.playbackRate = Number(speed);
   }, [speed, src]);
@@ -830,7 +841,7 @@ export default function Studio() {
     let id = '';
     try {
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', file instanceof File ? file : await desktopVideoFile(file));
       form.append('start', String(p.segment[0]));
       form.append('end', String(p.segment[1]));
       form.append('quality', p.analysisQuality || 'standard');
@@ -845,7 +856,7 @@ export default function Studio() {
       if (!response.ok) throw Error(data.detail || 'A análise falhou.');
       id = data.id;
       setJob(id);
-      setConnected(true);
+      setAnalyzer('on');
       say('À procura do atleta…', 'busy');
       while (true) {
         if (cancelled.current)
@@ -1487,7 +1498,7 @@ export default function Studio() {
           </button>
         </div>
         <div className="header-actions">
-          {!connected && (
+          {analyzer === 'off' && (
             <span className="chip warn">
               <i />
               Analisador desligado
@@ -1910,13 +1921,17 @@ export default function Studio() {
                   )}
                   <button
                     className="primary full"
-                    disabled={!!blocked || selectingRegion}
+                    disabled={!!blocked || selectingRegion || analyzer === 'starting'}
                     onClick={startTracking}
                   >
                     <ScanLine size={17} />
                     Analisar a minha pagaiada
                   </button>
-                  {blocked && !busy && <small className="warn-text">{blocked}</small>}
+                  {blocked && !busy ? (
+                    <small className="warn-text">{blocked}</small>
+                  ) : (
+                    analyzer === 'starting' && <small className="dim">A preparar a análise…</small>
+                  )}
                 </div>
               )}
               {inspector === 'tool' && mode === 'paddle' && (

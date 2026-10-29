@@ -19,4 +19,9 @@ contextBridge.exposeInMainWorld('strokeDesktop', {
     ipcRenderer.on('stroke:update', listener);
     return () => ipcRenderer.removeListener('stroke:update', listener);
   },
+  onFlush: (fn) => {
+    const listener = () => fn();
+    ipcRenderer.on('stroke:flush', listener);
+    return () => ipcRenderer.removeListener('stroke:flush', listener);
+  },
 });

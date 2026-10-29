@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
 const http = require('node:http');
+const { pipeline } = require('node:stream');
 const { randomBytes, randomUUID } = require('node:crypto');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
@@ -13,7 +14,7 @@ let analyzerReady;
 const launchedAt = performance.now();
 const milestone = name => log(`Startup ${name}: ${Math.round(performance.now() - launchedAt)} ms`);
 let projectPath = null, videoPath = null, updater = null, update = null, relaunch = false;
-let writeQueue = Promise.resolve();
+let writeQueue = Promise.resolve(), snapshotText = null, snapshotted = null, closing = false;
 const token = randomBytes(32).toString('hex');
 const videos = new Map(), pending = new Map();
 const data = () => app.getPath('userData');
@@ -53,7 +54,8 @@ async function remember() {
 async function videoDescriptor(file) {
   const stat = await fsp.stat(file);
   if (!stat.isFile() || stat.size > 1024 ** 3) throw Error('O limite do vídeo é 1 GB.');
-  const id = randomUUID(); videos.set(id, file);
+  // The unguessable path is the capability: <video> cannot send the token header.
+  const id = randomBytes(32).toString('hex'); videos.set(id, file);
   return { id, name: path.basename(file), size: stat.size, url: `${origin}/video/${id}` };
 }
 let checkForUpdates = async () => {};
@@ -66,7 +68,7 @@ function handle(name, fn) {
   });
 }
 function installIPC() {
-  handle('config', async () => { await analyzerReady; return { api, token, version: app.getVersion(), update }; });
+  handle('config', () => ({ token, version: app.getVersion(), update }));
   handle('installUpdate', () => { relaunch = true; win.close(); });
   handle('retryUpdate', () => { sendUpdate({ ...update, state: 'downloading' }); return checkForUpdates(); });
   handle('openProject', async () => {
@@ -115,8 +117,11 @@ function installIPC() {
   });
   handle('snapshot', (text, isDirty) => {
     projectText(text);
-    const snapshot = JSON.stringify({ text, dirty: !!isDirty, file: projectPath, video: videoPath });
-    writeQueue = writeQueue.catch(() => {}).then(() => atomic(recoveryPath(), snapshot));
+    // Only the newest snapshot matters: a queued write takes the latest text.
+    const queued = snapshotText !== null;
+    snapshotText = JSON.stringify({ text, dirty: !!isDirty, file: projectPath, video: videoPath });
+    if (!queued) writeQueue = writeQueue.catch(() => {}).then(() => { const next = snapshotText; snapshotText = null; return atomic(recoveryPath(), next); });
+    snapshotted?.();
     return writeQueue;
   });
   handle('recover', async () => {
@@ -139,12 +144,14 @@ async function startServer() {
   const ui = app.isPackaged ? path.join(process.resourcesPath, 'ui') : path.join(root, 'app', 'desktop-dist');
   server = http.createServer(async (req, res) => {
     try {
-      if (req.headers.host !== new URL(origin).host || !['GET', 'HEAD'].includes(req.method)) { res.writeHead(403).end(); return; }
+      if (req.headers.host !== new URL(origin).host) { res.writeHead(403).end(); return; }
+      if (req.url.startsWith('/api/') && ['GET', 'POST', 'DELETE'].includes(req.method)) { await proxy(req, res); return; }
+      if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(403).end(); return; }
       const pathname = decodeURIComponent(new URL(req.url, origin).pathname);
       const send = (mime, length) => {
         res.setHeader('Content-Type', mime); res.setHeader('Content-Length', length);
         res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ${api || ''}; object-src 'none'; frame-src 'none'; base-uri 'none'`);
+        res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'`);
       };
       if (pathname === '/theme.js') {
         // The listening port is new on every launch, so the page origin — and
@@ -159,18 +166,41 @@ async function startServer() {
         return;
       }
       const isVideo = pathname.startsWith('/video/');
-      if (isVideo && req.headers['x-stroke-token'] !== token) { res.writeHead(401).end(); return; }
       const file = isVideo ? videos.get(pathname.slice(7)) : path.resolve(ui, `.${pathname === '/' ? '/index.html' : pathname}`);
       if (!file || (!isVideo && !file.startsWith(ui + path.sep))) { res.writeHead(404).end(); return; }
       const stat = await fsp.stat(file);
       if (!stat.isFile()) { res.writeHead(404).end(); return; }
       const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png' }[path.extname(file)] || 'application/octet-stream';
-      send(mime, stat.size);
-      if (req.method === 'HEAD') res.end(); else fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
+      let start = 0, end = stat.size - 1;
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+      if (range && (range[1] || range[2])) {
+        if (range[1]) { start = Number(range[1]); if (range[2]) end = Math.min(Number(range[2]), end); }
+        else start = Math.max(0, stat.size - Number(range[2]));
+        if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` }).end(); return; }
+        res.statusCode = 206; res.setHeader('Content-Range', `bytes ${start}-${end}/${stat.size}`);
+      }
+      res.setHeader('Accept-Ranges', 'bytes');
+      send(mime, end - start + 1);
+      if (req.method === 'HEAD') res.end(); else pipeline(fs.createReadStream(file, { start, end }), res, () => {});
     } catch { res.writeHead(404).end(); }
   });
+  // Uploads of up to 1 GB pass through the analyzer proxy.
+  server.requestTimeout = 0;
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   origin = `http://127.0.0.1:${server.address().port}`;
+}
+// The renderer reaches the analyzer through its own origin, so the document CSP
+// never needs the analyzer's port and the editor can load before it is ready.
+async function proxy(req, res) {
+  try { await analyzerReady; } catch { res.writeHead(503).end(); return; }
+  const headers = {};
+  for (const name of ['content-type', 'content-length', 'x-stroke-token', 'origin']) if (req.headers[name]) headers[name] = req.headers[name];
+  const upstream = http.request(`${api}${req.url.slice(4)}`, { method: req.method, headers }, answer => {
+    res.writeHead(answer.statusCode, { 'Content-Type': answer.headers['content-type'] || 'application/json' });
+    pipeline(answer, res, () => {});
+  });
+  upstream.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+  pipeline(req, upstream, () => {});
 }
 async function startAnalyzer() {
   const command = app.isPackaged
@@ -205,6 +235,10 @@ async function startAnalyzer() {
   if (!response.ok || !(await response.json()).modelReady) throw Error('O modelo de análise não está disponível.');
   milestone('analyzer-ready');
 }
+// The renderer debounces snapshots; ask for the newest one before closing.
+function flushSnapshot() {
+  return new Promise(resolve => { snapshotted = resolve; win.webContents.send('stroke:flush'); setTimeout(resolve, 1500); });
+}
 async function stop() {
   quitting = true;
   await writeQueue.catch(() => {});
@@ -231,10 +265,13 @@ else {
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (event, url) => { if (url !== origin + '/') event.preventDefault(); });
     win.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
-    win.on('close', event => {
+    win.on('close', async event => {
       if (quitting) return;
       event.preventDefault();
+      if (closing) return;
       if (dirty && dialog.showMessageBoxSync(win, { type: 'question', title: 'Fechar o Stroke?', message: 'Tens alterações por guardar.', detail: 'Volta ao editor para guardar. A cópia de recuperação fica disponível na próxima abertura.', buttons: ['Voltar ao editor', 'Fechar'], defaultId: 0, cancelId: 0 }) !== 1) { relaunch = false; return; }
+      closing = true;
+      await flushSnapshot();
       void stop();
     });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -244,12 +281,20 @@ else {
       { label: 'Ajuda', submenu: [{ label: 'Exportar diagnóstico…', click: async () => { const result = await dialog.showSaveDialog(win, { defaultPath: `Stroke-${app.getVersion()}-diagnostico.txt` }); if (!result.canceled) await fsp.copyFile(logPath(), result.filePath).catch(err => dialog.showErrorBox('Stroke', err.message)); } }] },
     ]));
     await win.loadFile(path.join(__dirname, 'loading.html'), { query: { theme } });
+    const fail = async err => {
+      if (quitting) return;
+      log(err.stack || err.message);
+      if (smoke) {
+        await fsp.writeFile(path.join(data(), 'smoke-failure.txt'), await win.webContents.executeJavaScript('document.body.innerText').catch(() => 'Renderer unavailable'));
+      }
+      if (smoke) await fsp.writeFile(path.join(data(), 'smoke-result.json'), JSON.stringify({ ok: false, error: err.message }));
+      else dialog.showErrorBox('Não foi possível abrir o Stroke', `${err.message}\n\nDiagnóstico: ${logPath()}`);
+      await stop();
+    };
     try {
       await startServer();
       analyzerReady = startAnalyzer();
-      // The document CSP must include the analyzer's assigned origin when it
-      // is served. Loading it earlier permanently blocks renderer API calls.
-      await analyzerReady;
+      analyzerReady.catch(fail);
       installIPC();
       await win.loadURL(origin);
       milestone('editor-loaded');
@@ -280,6 +325,7 @@ else {
         void checkForUpdates();
       }
       if (smoke) {
+        await analyzerReady;
         await new Promise(resolve => setTimeout(resolve, 1500));
         const result = await win.webContents.executeJavaScript(`({ title: document.title, text: document.body.innerText, bridge: !!window.strokeDesktop })`);
         if (!result.bridge || !result.text.includes('Abrir projeto')) throw Error('Desktop renderer smoke test failed.');
@@ -288,14 +334,6 @@ else {
         await win.webContents.capturePage().then(img => fsp.writeFile(path.join(data(), 'smoke.png'), img.toPNG()));
         await stop();
       }
-    } catch (err) {
-      log(err.stack || err.message);
-      if (smoke) {
-        await fsp.writeFile(path.join(data(), 'smoke-failure.txt'), await win.webContents.executeJavaScript('document.body.innerText').catch(() => 'Renderer unavailable'));
-      }
-      if (smoke) await fsp.writeFile(path.join(data(), 'smoke-result.json'), JSON.stringify({ ok: false, error: err.message }));
-      else dialog.showErrorBox('Não foi possível abrir o Stroke', `${err.message}\n\nDiagnóstico: ${logPath()}`);
-      await stop();
-    }
+    } catch (err) { await fail(err); }
   });
 }
