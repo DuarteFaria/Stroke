@@ -77,6 +77,16 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await waitFor(`document.querySelector('video')?.readyState >= 2`);
   await capture('studio-overview.png');
   checks.push('native project open', 'native video open and decode');
+  await click('Análise');
+  await click('Analisar a minha pagaiada');
+  const original = JSON.parse(await fs.readFile(fixture, 'utf8'));
+  if (original.corrections.length || original.target.length) {
+    await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Detetar')`);
+    await click('Detetar');
+  }
+  await waitFor(`document.body.innerText.includes('Análise pronta.')`, 90000);
+  await waitFor(`![...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Cancelar') && !document.body.innerText.includes('A detetar')`);
+  checks.push('real inference through renderer');
   if (process.env.STROKE_SMOKE_3D) {
     await click('Vista 3D');
     await waitFor(`document.querySelectorAll('.pose3d circle').length > 0`);
@@ -90,7 +100,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     await waitFor(`document.querySelector('.pose3d > p').innerText.includes('Original')`);
     await run(`document.querySelector('.pose3d-options input').click()`);
     checks.push('3D anatomical labels, rotation, reset and original comparison');
-    await click('Editar');
+    await click('Vista 3D');
   }
   if (process.env.STROKE_SMOKE_COMPARISONS) {
     await click('Comparar');
@@ -113,16 +123,6 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     checks.push('left/right means and verdict', 'per-stroke bars and replay', 'comparison compact layout');
     return checks;
   }
-  await click('Análise');
-  await click('Analisar a minha pagaiada');
-  const original = JSON.parse(await fs.readFile(fixture, 'utf8'));
-  if (original.corrections.length || original.target.length) {
-    await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Detetar')`);
-    await click('Detetar');
-  }
-  await waitFor(`document.body.innerText.includes('Análise pronta.')`, 90000);
-  await waitFor(`![...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Cancelar') && !document.body.innerText.includes('A detetar')`);
-  checks.push('real inference through renderer');
   assert.equal(await run(`!!document.querySelector('#timing-summary')`), false);
   assert.equal(await run(`document.querySelector('.rail').getBoundingClientRect().height > 0`), true);
   assert.equal(await run(`document.querySelectorAll('.dock .marker').length`), original.events.filter(e => e.review !== 'skipped' && e.t >= original.segment[0] && e.t <= original.segment[1]).length);
