@@ -55,7 +55,7 @@ export default function Pose3D({ project, time, available }: { project: Project;
               {[15,16].includes(a) && <text x={projected[a].x+9} y={projected[a].y-9} fill={color(a)} stroke="#111" strokeWidth="3" paintOrder="stroke" fontSize="13" fontWeight="bold">{a===15 ? 'E' : 'D'}</text>}
             </g>;
           })}
-      </> : <text x="160" y="180" textAnchor="middle" fill="#aaa" fontSize="13">{hasWorld ? 'Sem pontos visíveis suficientes' : 'Analisa o vídeo para obter 3D'}</text>}
+      </> : <text x="160" y="180" textAnchor="middle" fill="#aaa" fontSize="13">{hasWorld ? 'Sem pontos visíveis suficientes' : 'Faz a deteção para obter 3D'}</text>}
     </svg>
     <p className="pose3d-legend"><span>● E · Esquerda do atleta</span><span>● D · Direita do atleta</span></p>
     <div className="pose3d-options">
@@ -67,6 +67,6 @@ export default function Pose3D({ project, time, available }: { project: Project;
     <label>Inclinação <input aria-label="Inclinação 3D" type="range" min={-90} max={90} value={pitch * 180 / Math.PI} onChange={e => setPitch(Number(e.target.value) * Math.PI / 180)} /></label>
     <label>Zoom <input aria-label="Zoom 3D" type="range" min={.5} max={3} step={.05} value={zoom} onChange={e => setZoom(Number(e.target.value))} /></label>
     <p>Os lados pertencem ao atleta, mesmo quando rodas a vista. A profundidade é estimada; as correções 2D não alteram este esqueleto.</p>
-    {!hasWorld && <p>Projetos antigos: volta a analisar o vídeo original. A nova análise substitui as correções no trecho selecionado.</p>}
+    {!hasWorld && <p>Projetos antigos: volta a detetar no vídeo original. A nova deteção substitui as correções no trecho selecionado.</p>}
   </section>;
 }

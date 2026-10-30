@@ -743,7 +743,7 @@ function Timeline({
           <>
             {(['Left', 'Right'] as const).map((s) => (
               <fieldset key={s} className={`mark-side side-${s}`}>
-                <legend className="sr-only">Pá {sideName(s)}</legend>
+                <legend className="sr-only">Pagaia à {sideName(s)}</legend>
                 <i className="side-dot" />
                 <span className="mark-name">{s === 'Left' ? 'Esq.' : 'Dir.'}</span>
                 <span className="mark-pair">
@@ -765,7 +765,7 @@ function Timeline({
             {placed && p.events.some((x) => x.id === placed.id && x.review !== 'skipped') && (
               <small className="ctx-why placed" key={placed.id}>
                 <i className={`side-dot side-${placed.side}`} />
-                {eventName(placed)} em {placed.t.toFixed(2)} s · Delete apaga
+                {eventName(placed)} em {placed.t.toFixed(2)} s · Delete remove
               </small>
             )}
             <span className="ctx-sep" />
@@ -775,7 +775,7 @@ function Timeline({
                 !hasVideo ||
                 transitionBlocked
               }
-              title="Trecho sem remar: viragem, pausa. Volta a analisar para aplicar."
+              title="Trecho sem remar: viragem, pausa. Volta a detetar para aplicar."
               onClick={markTransition}
             >
               <Flag size={14} />

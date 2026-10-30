@@ -35,7 +35,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   })()`);
   assert.equal(rendererHealth.ok,true);
   assert.equal(rendererHealth.modelReady,true);
-  await waitFor(`!document.body.innerText.includes('Analisador desligado')`);
+  await waitFor(`!document.body.innerText.includes('Detetor desligado')`);
   checks.push('renderer-to-analyzer connection under document CSP');
   assert.equal(await run(`fetch('/api/health').then(r => r.status)`), 401);
   assert.equal(await run(`fetch('/index.html', { headers: { Range: 'bytes=0-9' } }).then(async r => r.status + ' ' + (await r.text()).length)`), '206 10');
@@ -77,14 +77,14 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await waitFor(`document.querySelector('video')?.readyState >= 2`);
   await capture('studio-overview.png');
   checks.push('native project open', 'native video open and decode');
-  await click('Análise');
-  await click('Analisar a minha pagaiada');
+  await click('Deteção');
+  await click('Detetar a minha remada');
   const original = JSON.parse(await fs.readFile(fixture, 'utf8'));
   if (original.corrections.length || original.target.length) {
     await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Detetar')`);
     await click('Detetar');
   }
-  await waitFor(`document.body.innerText.includes('Análise pronta.')`, 90000);
+  await waitFor(`document.body.innerText.includes('Deteção pronta.')`, 90000);
   await waitFor(`![...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Cancelar') && !document.body.innerText.includes('A detetar')`);
   checks.push('real inference through renderer');
   if (process.env.STROKE_SMOKE_3D) {
@@ -127,9 +127,9 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   assert.equal(await run(`document.querySelector('.rail').getBoundingClientRect().height > 0`), true);
   assert.equal(await run(`document.querySelectorAll('.dock .marker').length`), original.events.filter(e => e.review !== 'skipped' && e.t >= original.segment[0] && e.t <= original.segment[1]).length);
   assert.equal(await run(`document.body.innerText.includes('Sugerir marcações') || document.body.innerText.includes('Rever sugestões')`), false);
-  assert.equal(await run(`['Análise','Ideal','Desenhar','Resumo','Comparar','Vista 3D'].every(label => [...document.querySelectorAll('.rail .rail-btn')].some(b => b.textContent.trim() === label))`), true);
-  await click('Análise');
-  assert.equal(await run(`document.querySelector('.inspector .setup').innerText.includes('Análise detalhada') && document.querySelector('.inspector .setup').innerText.includes('Área do atleta')`), true);
+  assert.equal(await run(`['Deteção','Ideal','Desenhar','Resumo','Comparar','Vista 3D'].every(label => [...document.querySelectorAll('.rail .rail-btn')].some(b => b.textContent.trim() === label))`), true);
+  await click('Deteção');
+  assert.equal(await run(`document.querySelector('.inspector .setup').innerText.includes('Deteção detalhada') && document.querySelector('.inspector .setup').innerText.includes('Área do atleta')`), true);
   await click('Área do atleta');
   await waitFor(`document.body.innerText.includes('Arrasta à volta do atleta')`);
   await click('Cancelar seleção');

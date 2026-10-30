@@ -6,7 +6,7 @@ not receive these changes automatically.
 
 ## Trying it
 
-1. Open a clip and choose **Analisar a minha pagaiada**.
+1. Open a clip and choose **Detetar a minha remada**.
 2. Use **+ Entrada** and **+ Saída** beneath the timeline to mark the current
    frame. Choose the athlete's side first. Analysis does not generate marks.
 3. Click a marker to replay nearby footage. Use **Ajustar** to move it by frames,

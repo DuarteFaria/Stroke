@@ -217,13 +217,13 @@ async function startAnalyzer() {
   analyzer.stderr.on('data', chunk => log(chunk.toString()));
   analyzer.on('exit', (code) => {
     log(`Analyzer exited (${code})`);
-    if (!quitting && api && !smoke) { dialog.showErrorBox('Stroke', 'O analisador parou. Guarda o projeto e reinicia o Stroke.'); }
+    if (!quitting && api && !smoke) { dialog.showErrorBox('Stroke', 'O detetor parou. Guarda o projeto e reinicia o Stroke.'); }
   });
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(Error('O analisador não arrancou em 90 segundos.')), 90000);
+    const timer = setTimeout(() => reject(Error('O detetor não arrancou em 90 segundos.')), 90000);
     let buffer = '';
     analyzer.once('error', err => { clearTimeout(timer); reject(err); });
-    analyzer.once('exit', code => { clearTimeout(timer); reject(Error(`O analisador terminou (${code}).`)); });
+    analyzer.once('exit', code => { clearTimeout(timer); reject(Error(`O detetor terminou (${code}).`)); });
     analyzer.stdout.on('data', chunk => {
       log(chunk.toString().trim());
       buffer += chunk.toString();
@@ -232,7 +232,7 @@ async function startAnalyzer() {
     });
   });
   const response = await fetch(`${api}/health`, { headers: { 'X-Stroke-Token': token } });
-  if (!response.ok || !(await response.json()).modelReady) throw Error('O modelo de análise não está disponível.');
+  if (!response.ok || !(await response.json()).modelReady) throw Error('O modelo de deteção não está disponível.');
   milestone('analyzer-ready');
 }
 // The renderer debounces snapshots; ask for the newest one before closing.

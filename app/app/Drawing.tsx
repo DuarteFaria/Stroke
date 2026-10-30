@@ -206,9 +206,9 @@ export function useDrawing(o: {
         save([]);
         setSelectedId(null);
       },
-      title: 'Apagar todos os desenhos?',
-      body: 'Apaga os desenhos do vídeo inteiro. Podes anular a seguir.',
-      action: 'Apagar tudo',
+      title: 'Remover todos os desenhos?',
+      body: 'Remove os desenhos do vídeo inteiro. Podes anular a seguir.',
+      action: 'Remover tudo',
       offerSave: false,
       danger: true,
     });
@@ -1177,7 +1177,7 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
             <button aria-label="Duplicar" title="Duplicar (Ctrl+D)" onClick={d.duplicate}>
               <Copy size={16} />
             </button>
-            <button aria-label="Apagar" title="Apagar (Delete)" onClick={d.remove}>
+            <button aria-label="Remover" title="Remover (Delete)" onClick={d.remove}>
               <Trash2 size={16} />
             </button>
           </>
@@ -1189,7 +1189,7 @@ export function DrawingToolbar({ d }: { d: DrawingState }) {
               </button>
             )}
             {d.drawings.length > 0 && (
-              <button aria-label="Apagar tudo" title="Apagar todos os desenhos" onClick={d.clearAll}>
+              <button aria-label="Remover tudo" title="Remover todos os desenhos" onClick={d.clearAll}>
                 <Trash2 size={16} />
               </button>
             )}

@@ -9,7 +9,7 @@ const seconds = (n: number | null) => n === null ? '—' : `${n.toFixed(2)} s`;
 export function TimingSummary({project: p}: {project: Project}) {
   const summary = useMemo(() => strokeSummary(p), [p]);
   return <div id="timing-summary" className="timing-summary">
-      <p>Apenas marcações confirmadas · {summary.pairs.length} {summary.pairs.length === 1 ? 'pagaiada completa' : 'pagaiadas completas'}</p>
-      <dl><div><dt>Pagaiadas / min</dt><dd>{summary.rate === null ? '—' : summary.rate.toFixed(0)}</dd></div><div><dt>Esquerda na água</dt><dd>{seconds(summary.left)}</dd></div><div><dt>Direita na água</dt><dd>{seconds(summary.right)}</dd></div></dl>
+      <p>Apenas marcações confirmadas · {summary.pairs.length} {summary.pairs.length === 1 ? 'remada completa' : 'remadas completas'}</p>
+      <dl><div><dt>Remadas / min</dt><dd>{summary.rate === null ? '—' : summary.rate.toFixed(0)}</dd></div><div><dt>Esquerda na água</dt><dd>{seconds(summary.left)}</dd></div><div><dt>Direita na água</dt><dd>{seconds(summary.right)}</dd></div></dl>
     </div>;
 }

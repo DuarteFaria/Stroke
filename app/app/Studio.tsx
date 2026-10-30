@@ -9,7 +9,7 @@ import Timeline, { fmt, type EditMode } from './Timeline';
 import Shortcuts from './Shortcuts';
 import { clock, useClock } from '@/lib/clock';
 import { editorKeysBlocked } from '@/lib/keys';
-import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject, type DesktopVideo } from '@/lib/desktop';
+import { desktop, analyzerFetch, analyzerError, desktopVideoFile, type DesktopProject, type DesktopVideo } from '@/lib/desktop';
 import {
   useState,
   useRef,
@@ -172,8 +172,8 @@ const INK = {
   ring: '#0b0b09',
 };
 const PADDLE_POINTS: [string, string][] = [
-  ['a', 'Pá A'],
-  ['b', 'Pá B'],
+  ['a', 'Pagaia A'],
+  ['b', 'Pagaia B'],
   ['r1', 'Referência 1'],
   ['r2', 'Referência 2'],
 ];
@@ -563,7 +563,7 @@ export default function Studio() {
       setDirty(false);
       setMode('correct');
       setPanel('setup');
-      say('Vídeo pronto. Escolhe Analisar a minha pagaiada.', 'ok');
+      say('Vídeo pronto. Escolhe Detetar a minha remada.', 'ok');
     }
     return true;
   }
@@ -862,7 +862,7 @@ export default function Studio() {
     setBusy(true);
     setProgress(0);
     cancelled.current = false;
-    say('A enviar o vídeo…', 'busy');
+    say('A preparar o vídeo…', 'busy');
     let id = '';
     try {
       const form = new FormData();
@@ -878,7 +878,7 @@ export default function Studio() {
         body: form,
       });
       const data = (await response.json()) as JobResponse;
-      if (!response.ok) throw Error(data.detail || 'A análise falhou.');
+      if (!response.ok) throw analyzerError(data.detail);
       id = data.id;
       setJob(id);
       setAnalyzer('on');
@@ -887,17 +887,17 @@ export default function Studio() {
         if (cancelled.current)
           await analyzerFetch(`/jobs/${id}`, { method: 'DELETE' });
         const response = await analyzerFetch(`/jobs/${id}`);
-        if (!response.ok) throw Error('Não deu para ler o estado da análise.');
         const data = (await response.json()) as JobResponse;
+        if (!response.ok) throw analyzerError(data.detail);
         setProgress(data.progress);
-        if (data.status === 'error') throw Error(data.error);
+        if (data.status === 'error') throw analyzerError(data.error);
         if (data.status === 'cancelled') {
-          say('Análise cancelada.', 'info');
+          say('Deteção cancelada.', 'info');
           break;
         }
         if (data.status === 'done') {
           if (cancelled.current) {
-            say('Análise cancelada.', 'info');
+            say('Deteção cancelada.', 'info');
             break;
           }
           const r = data.result;
@@ -933,12 +933,12 @@ export default function Studio() {
           const n = cuts.length;
           say(
             !n
-              ? 'Análise pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.'
+              ? 'Deteção pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.'
               : !fits
-                ? `Análise pronta. Encontrei ${n} ${n === 1 ? 'corte' : 'cortes'} de câmara, mas já não cabem mais transições.`
+                ? `Deteção pronta. Encontrei ${n} ${n === 1 ? 'corte' : 'cortes'} de câmara, mas já não cabem mais transições.`
                 : n === 1
-                  ? 'Análise pronta. Encontrei 1 corte de câmara e marquei-o como transição.'
-                  : `Análise pronta. Encontrei ${n} cortes de câmara e marquei-os como transições.`,
+                  ? 'Deteção pronta. Encontrei 1 corte de câmara e marquei-o como transição.'
+                  : `Deteção pronta. Encontrei ${n} cortes de câmara e marquei-os como transições.`,
             r.detected > r.total * 0.6 ? 'ok' : 'warn',
           );
           break;
@@ -947,10 +947,11 @@ export default function Studio() {
       }
     } catch (e) {
       checkHealth();
+      // Sem rede (TypeError) ou sem resposta do detetor (corpo vazio, SyntaxError).
       say(
-        e instanceof Error
-          ? e.message
-          : 'Analisador não responde. Arranca com o Start-Stroke.ps1.',
+        e instanceof TypeError || e instanceof SyntaxError
+          ? 'O detetor não responde. Reinicia o Stroke.'
+          : (e as Error).message,
         'warn',
       );
     } finally {
@@ -1034,7 +1035,7 @@ export default function Studio() {
     : !file
       ? 'Liga primeiro o vídeo original.'
       : busy
-        ? 'Já está a analisar.'
+        ? 'Já está a detetar.'
         : segmentLength > 120
           ? `Trecho de ${segmentLength.toFixed(0)} s. O máximo é 120 s.`
           : '';
@@ -1212,7 +1213,7 @@ export default function Studio() {
     }
     commit({ ...p, transitions: merged });
     setTransitionStart(null);
-    say('Transição marcada. Volta a analisar para aplicar.', 'info');
+    say('Transição marcada. Volta a detetar para aplicar.', 'info');
   }
   function toggleRegion() {
     video.current?.pause();
@@ -1397,10 +1398,10 @@ export default function Studio() {
   const inspector: Panel =
     panel === 'tool' && mode === 'correct' ? null : panel;
   const panelTitle: Record<Exclude<Panel, null>, string> = {
-    setup: 'Análise',
+    setup: 'Deteção',
     tool: MODES[mode].label,
     summary: 'Resumo',
-    compare: 'Comparar pagaiadas',
+    compare: 'Comparar remadas',
     '3d': 'Vista 3D',
   };
   const stable = useStable({
@@ -1482,7 +1483,7 @@ export default function Studio() {
         <legend className="sr-only">Camadas no vídeo</legend>
         <Toggle checked={showRaw} onChange={setShowRaw}>
           <i className="sw" style={{ background: INK.before }} />
-          Antes
+          Original
         </Toggle>
         <Toggle
           checked={showTarget}
@@ -1552,9 +1553,9 @@ export default function Studio() {
           {analyzer === 'off' && (
             <span className="chip warn">
               <i />
-              Analisador desligado
+              Detetor desligado
               <button className="link" onClick={checkHealth}>
-                ver
+                Tentar de novo
               </button>
             </span>
           )}
@@ -1629,11 +1630,11 @@ export default function Studio() {
             className="rail-btn"
             aria-pressed={inspector === 'setup'}
             data-attention={(!!src && !tracked && !busy) || undefined}
-            title="Trecho, área do atleta e análise"
+            title="Trecho, área do atleta e deteção"
             onClick={() => openView('setup')}
           >
             <ScanLine size={19} />
-            <span>Análise</span>
+            <span>Deteção</span>
           </button>
           <span className="rail-sep" />
           <fieldset className="rail-group">
@@ -1717,7 +1718,7 @@ export default function Studio() {
                     drag.current = null;
                   }
                 }}
-                aria-label="Esqueleto do atleta e pá, editáveis"
+                aria-label="Esqueleto do atleta e pagaia, editáveis"
               >
                 {(regionDraft || p.athleteRegion) && (() => {
                   const r = regionDraft || followedFrame?.region || p.athleteRegion!;
@@ -1812,7 +1813,7 @@ export default function Studio() {
             {!busy && tracked && !inSegment && src && (
               <div className="stage-note">
                 <TriangleAlert size={15} />
-                Fora do trecho analisado
+                Fora do trecho detetado
                 <button onClick={() => seek(p.segment[0])}>Ir</button>
               </div>
             )}
@@ -1962,7 +1963,7 @@ export default function Studio() {
                       commit({ ...p, analysisQuality: checked ? 'detailed' : 'standard' })
                     }
                   >
-                    Análise detalhada
+                    Deteção detalhada
                   </Toggle>
                   {(p.transitions?.length || 0) > 0 && (
                     <small className="dim">
@@ -1976,12 +1977,12 @@ export default function Studio() {
                     onClick={startTracking}
                   >
                     <ScanLine size={17} />
-                    Analisar a minha pagaiada
+                    Detetar a minha remada
                   </button>
                   {blocked && !busy ? (
                     <small className="warn-text">{blocked}</small>
                   ) : (
-                    analyzer === 'starting' && <small className="dim">A preparar a análise…</small>
+                    analyzer === 'starting' && <small className="dim">A preparar a deteção…</small>
                   )}
                 </div>
               )}
@@ -2022,7 +2023,7 @@ export default function Studio() {
                     }
                   >
                     <X size={15} />
-                    Apagar marcas deste fotograma
+                    Remover marcas deste fotograma
                   </button>
                 </>
               )}
@@ -2046,7 +2047,7 @@ export default function Studio() {
                       Criar movimento ideal
                     </button>
                     {!corrected && src && (
-                      <small className="dim">Precisa de um fotograma analisado.</small>
+                      <small className="dim">Precisa de um fotograma detetado.</small>
                     )}
                   </div>
                 ))}

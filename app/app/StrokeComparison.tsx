@@ -11,7 +11,7 @@ const metrics = [{key: 'water', label: 'Na água'}, {key: 'recovery', label: 'Re
 function verdict(left: number | null, right: number | null) {
   if (left === null || right === null) return null;
   const d = right - left;
-  if (Math.abs(d) < 0.005) return 'As duas pás ficam o mesmo tempo na água.';
+  if (Math.abs(d) < 0.005) return 'Os dois lados ficam o mesmo tempo na água.';
   const pct = Math.round(Math.abs(d) / Math.max(left, right) * 100);
   return `A direita fica ${Math.abs(d).toFixed(2)} s ${d > 0 ? 'mais' : 'menos'} na água do que a esquerda (${pct}%).`;
 }
@@ -26,8 +26,8 @@ export default memo(function StrokeComparison({project: p, disabled, replay}: {
 }) {
   const strokes = useMemo(() => comparisonStrokes(p), [p]);
   if (!strokes.length)
-    return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar pagaiadas">
-      <p className="comparison-empty">Marca a entrada e a saída de uma pá (teclas 1–4) para comparar as pagaiadas.</p>
+    return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar remadas">
+      <p className="comparison-empty">Marca a entrada e a saída da pagaia (teclas 1–4) para comparar as remadas.</p>
     </section>;
   const bySide = SIDES.map(([side]) => strokes.filter(s => s.side === side));
   const rows = metrics.map(m => ({...m, stats: bySide.map(list => comparisonStats(list.map(s => s[m.key])))}))
@@ -47,7 +47,7 @@ export default memo(function StrokeComparison({project: p, disabled, replay}: {
   }, []);
   const bar = (s: ComparedStroke) => <li key={s.id}>
     <button className={`side-${s.side}`} disabled={disabled} onClick={() => replay(s.start, s.end ?? s.exit)}
-      title={`Rever a pagaiada em ${s.start.toFixed(2)} s · na água ${seconds(s.water)}${s.recovery !== null ? ` · recuperação ${seconds(s.recovery)}` : ''}`}>
+      title={`Rever a remada em ${s.start.toFixed(2)} s · na água ${seconds(s.water)}${s.recovery !== null ? ` · recuperação ${seconds(s.recovery)}` : ''}`}>
       <span className="bar-name"><i className="side-dot" />{SIDES.find(x => x[0] === s.side)![1]} {bySide[s.side === 'Left' ? 0 : 1].indexOf(s) + 1}</span>
       <span className="bar-track">
         <span className="bar-water" style={{width: pct(s.water)}} />
@@ -56,17 +56,17 @@ export default memo(function StrokeComparison({project: p, disabled, replay}: {
       <span className="bar-value">{seconds(s.water)}</span>
     </button>
   </li>;
-  return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar pagaiadas">
+  return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar remadas">
     {say && <p className="comparison-verdict">{say}</p>}
     <table className="comparison-table">
       <caption className="sr-only">Médias por lado</caption>
       <thead><tr><th scope="col"><span className="sr-only">Medida</span></th>{SIDES.map(([side, name]) => <th scope="col" key={side}><i className={`side-dot side-${side}`} />{name}</th>)}</tr></thead>
       <tbody>
         {rows.map(r => <tr key={r.key}><th scope="row">{r.label}</th>{r.stats.map((s, i) => <td key={i}>{seconds(s.mean)}</td>)}</tr>)}
-        <tr className="comparison-count"><th scope="row">Pagaiadas</th>{bySide.map((list, i) => <td key={i}>{list.length}</td>)}</tr>
+        <tr className="comparison-count"><th scope="row">Remadas</th>{bySide.map((list, i) => <td key={i}>{list.length}</td>)}</tr>
       </tbody>
     </table>
-    <h3 className="comparison-sub">Cada pagaiada</h3>
+    <h3 className="comparison-sub">Cada remada</h3>
     {shots.length < 2 ? <ol className="stroke-bars">{strokes.map(bar)}</ol> : shots.map(({shot: [a, b], list}, i) =>
       <section key={a} className="stroke-shot" aria-label={`Plano ${i + 1}`}>
         <h4>Plano {i + 1} <span>{clock(a)}–{clock(b)} · {list.length}</span></h4>
@@ -74,7 +74,7 @@ export default memo(function StrokeComparison({project: p, disabled, replay}: {
       </section>)}
     <p className="comparison-note">
       {anyRecovery && <><i className="key-water" /> na água <i className="key-recovery" /> recuperação · </>}
-      Carrega numa pagaiada para a rever. Só contam marcações confirmadas.
+      Carrega numa remada para a rever. Só contam marcações confirmadas.
     </p>
   </section>;
 });

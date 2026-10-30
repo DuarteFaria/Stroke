@@ -22,9 +22,9 @@ LOCK = threading.Lock()
 @app.middleware('http')
 async def local_only(request: Request, call_next):
     if TOKEN and request.method != 'OPTIONS' and not secrets.compare_digest(request.headers.get('x-stroke-token', ''), TOKEN):
-        return JSONResponse({'detail':'Unauthorized desktop session.'},status_code=401)
+        return JSONResponse({'detail':'unauthorized'},status_code=401)
     if request.headers.get('origin') and request.headers['origin'] not in ORIGINS:
-        return JSONResponse({'detail':'Only the local Stroke app can use this service.'},status_code=403)
+        return JSONResponse({'detail':'foreign_origin'},status_code=403)
     return await call_next(request)
 
 @app.get('/health')
@@ -37,19 +37,19 @@ def inspect_video(path):
         fps=cap.get(cv2.CAP_PROP_FPS); count=cap.get(cv2.CAP_PROP_FRAME_COUNT)
         w=cap.get(cv2.CAP_PROP_FRAME_WIDTH); h=cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         if not cap.isOpened() or not all(math.isfinite(v) and v>0 for v in [fps,count,w,h]):
-            raise ValueError('This video could not be decoded. Try an MP4 encoded with H.264.')
+            raise ValueError('video_unreadable')
         return dict(fps=fps,duration=count/fps,width=int(w),height=int(h),frameCount=int(count))
     finally: cap.release()
 
 def validate_region(region):
     if region is None: return None
     if not isinstance(region, dict) or set(region) != {'x','y','width','height'}:
-        raise ValueError('Choose a valid athlete region.')
+        raise ValueError('region_invalid')
     if any(type(v) not in (int,float) or not math.isfinite(v) for v in region.values()):
-        raise ValueError('Region coordinates must be finite numbers.')
+        raise ValueError('region_invalid')
     x,y,w,h=(region[k] for k in ('x','y','width','height'))
     if x<0 or y<0 or w<.05 or h<.05 or x+w>1.00000001 or y+h>1.00000001:
-        raise ValueError('Keep the region inside the video and at least 5% wide and high.')
+        raise ValueError('region_invalid')
     return region
 
 
@@ -61,13 +61,13 @@ def crop_bounds(region, width, height):
 
 
 def validate_transitions(value):
-    if not isinstance(value,list) or len(value)>100: raise ValueError('Invalid transitions.')
+    if not isinstance(value,list) or len(value)>100: raise ValueError('transitions_invalid')
     previous=-1
     for pair in value:
         if not isinstance(pair,list) or len(pair)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) for v in pair):
-            raise ValueError('Invalid transition interval.')
+            raise ValueError('transitions_invalid')
         a,b=pair
-        if a<0 or b<=a or a<previous: raise ValueError('Transitions must be ordered and non-overlapping.')
+        if a<0 or b<=a or a<previous: raise ValueError('transitions_invalid')
         previous=b
     return value
 
@@ -91,17 +91,17 @@ def is_cut(distance,recent):
 
 def analyze(path,start,end,progress=lambda p:None,cancel=lambda:False,region=None,follow=False,quality='standard',transitions=None):
     transitions=validate_transitions(transitions or [])
-    if quality not in ('standard','detailed'): raise ValueError('Unknown analysis quality.')
+    if quality not in ('standard','detailed'): raise ValueError('quality_unknown')
     model=MODEL if quality=='standard' else MODEL.with_name('pose_landmarker_heavy.task')
-    if not model.exists(): raise ValueError('Detailed model missing. Run backend/setup_model.py.')
+    if not model.exists(): raise ValueError('model_missing')
     max_fps=15 if quality=='standard' else 30
     region=validate_region(region)
-    if follow and region is None: raise ValueError('Select an athlete region before enabling follow.')
+    if follow and region is None: raise ValueError('follow_needs_region')
     follower=RegionFollower(region) if follow else None
     meta=inspect_video(path)
-    if any(b>meta['duration']+.1 for a,b in transitions): raise ValueError('Transition ends beyond the video.')
+    if any(b>meta['duration']+.1 for a,b in transitions): raise ValueError('transition_beyond_video')
     if not (0<=start<end<=meta['duration']+.1) or end-start>120:
-        raise ValueError('Select a valid segment of up to 120 seconds within the video.')
+        raise ValueError('segment_invalid')
     cap=cv2.VideoCapture(str(path)); frames=[]
     options=mp.tasks.vision.PoseLandmarkerOptions(base_options=mp.tasks.BaseOptions(model_asset_path=str(model)),running_mode=mp.tasks.vision.RunningMode.VIDEO,num_poses=1,min_pose_detection_confidence=.4,min_pose_presence_confidence=.4,min_tracking_confidence=.5)
     # Decode each source frame; inference is sampled at the selected cap. Preserve decoder timestamps.
@@ -202,19 +202,19 @@ def run_job(job_id,path,start,end,region=None,follow=False,quality='standard',tr
 async def submit(file:UploadFile=File(...),start:float=Form(...),end:float=Form(...),region:str|None=Form(None),follow:bool=Form(False),quality:str=Form('standard'),transitions:str=Form('[]')):
     try: selected_transitions=validate_transitions(json.loads(transitions))
     except (ValueError,TypeError) as exc: raise HTTPException(400,str(exc)) from exc
-    if quality not in ('standard','detailed'): raise HTTPException(400,'Unknown analysis quality.')
+    if quality not in ('standard','detailed'): raise HTTPException(400,'quality_unknown')
     if quality=='detailed' and not MODEL.with_name('pose_landmarker_heavy.task').exists():
-        raise HTTPException(503,'Detailed model missing. Run backend/setup_model.py.')
+        raise HTTPException(503,'model_missing')
     try: selected_region=validate_region(json.loads(region) if region is not None else None)
     except (ValueError,TypeError) as exc: raise HTTPException(400,str(exc)) from exc
-    if follow and selected_region is None: raise HTTPException(400,'Select an athlete region before enabling follow.')
-    if not MODEL.exists(): raise HTTPException(503,'Pose model missing. Run the setup script.')
+    if follow and selected_region is None: raise HTTPException(400,'follow_needs_region')
+    if not MODEL.exists(): raise HTTPException(503,'model_missing')
     if not all(math.isfinite(x) for x in [start,end]) or not 0<=start<end or end-start>120:
-        raise HTTPException(400,'Choose a segment between 0 and 120 seconds long.')
+        raise HTTPException(400,'segment_invalid')
     with LOCK:
         for k in list(JOBS):
             if JOBS[k].get('finished',time.time())<time.time()-3600: del JOBS[k]
-        if any(j['status']=='running' for j in JOBS.values()): raise HTTPException(409,'Another analysis is running. Wait or cancel it first.')
+        if any(j['status']=='running' for j in JOBS.values()): raise HTTPException(409,'busy')
         job_id=uuid.uuid4().hex; JOBS[job_id]={'status':'running','progress':0,'cancel':False}
     path=None
     try:
@@ -222,11 +222,11 @@ async def submit(file:UploadFile=File(...),start:float=Form(...),end:float=Form(
             path=temp.name; total=0
             while chunk:=await file.read(1024*1024):
                 total+=len(chunk)
-                if total>1024**3: raise HTTPException(413,'This MVP accepts videos up to 1 GB. Trim a copy first.')
+                if total>1024**3: raise HTTPException(413,'video_too_large')
                 temp.write(chunk)
         meta=inspect_video(path)
-        if any(b>meta['duration']+.1 for a,b in selected_transitions): raise HTTPException(400,'Transition ends beyond the video.')
-        if end>meta['duration']+.1: raise HTTPException(400,'Segment ends beyond the video duration.')
+        if any(b>meta['duration']+.1 for a,b in selected_transitions): raise HTTPException(400,'transition_beyond_video')
+        if end>meta['duration']+.1: raise HTTPException(400,'segment_beyond_video')
         threading.Thread(target=run_job,args=(job_id,path,start,end,selected_region,follow,quality,selected_transitions),daemon=True).start()
         return {'id':job_id,'metadata':meta}
     except Exception as exc:
@@ -238,11 +238,11 @@ async def submit(file:UploadFile=File(...),start:float=Form(...),end:float=Form(
 
 @app.get('/jobs/{job_id}')
 def get_job(job_id:str):
-    if job_id not in JOBS: raise HTTPException(404,'Analysis not found. Please run it again.')
+    if job_id not in JOBS: raise HTTPException(404,'job_not_found')
     return {k:v for k,v in JOBS[job_id].items() if k not in ['cancel','finished']}
 
 @app.delete('/jobs/{job_id}')
 def cancel_job(job_id:str):
-    if job_id not in JOBS: raise HTTPException(404,'Analysis not found.')
+    if job_id not in JOBS: raise HTTPException(404,'job_not_found')
     JOBS[job_id]['cancel']=True
     return {'ok':True}

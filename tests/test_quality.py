@@ -15,4 +15,4 @@ def test_missing_detailed_model_is_actionable(monkeypatch,tmp_path):
     monkeypatch.setattr(main,'MODEL',tmp_path/'pose_landmarker_full.task')
     response=TestClient(main.app).post('/analyze',data={'start':0,'end':1,'quality':'detailed'},files={'file':('a.mp4',b'bad')})
     assert response.status_code==503
-    assert 'setup_model.py' in response.json()['detail']
+    assert response.json()['detail'] == 'model_missing'
