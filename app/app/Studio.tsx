@@ -8,6 +8,7 @@ import UpdateButton from './UpdateButton';
 import Timeline, { fmt, type EditMode } from './Timeline';
 import Shortcuts from './Shortcuts';
 import { clock, useClock } from '@/lib/clock';
+import { editorKeysBlocked } from '@/lib/keys';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject, type DesktopVideo } from '@/lib/desktop';
 import {
   useState,
@@ -692,6 +693,7 @@ export default function Studio() {
     return () => cancelAnimationFrame(handle);
   }, [loop]);
   const keyboardEvent = useEffectEvent((e: KeyboardEvent) => {
+    if (editorKeysBlocked(e)) return;
     const el = e.target as HTMLElement;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === 's') {
@@ -705,7 +707,7 @@ export default function Studio() {
       if (present) togglePresent();
       return;
     }
-    if (busy || el.closest('input,textarea,select,[contenteditable="true"]')) return;
+    if (busy) return;
     if (mod && e.key === 'z') {
       e.preventDefault();
       undo();
@@ -716,7 +718,7 @@ export default function Studio() {
       redo();
       return;
     }
-    if (mod || e.altKey || el.closest('[role="dialog"]')) return;
+    if (mod || e.altKey) return;
     const seg = current.current.segment;
     if (e.key === '?') {
       e.preventDefault();
@@ -742,7 +744,7 @@ export default function Studio() {
     }
     // Espaço e setas são do vídeo mesmo com o foco num botão que se carregou
     // antes (Entrada, Repetir…); só os controlos que as usam ficam com elas.
-    if (el.closest('[role="combobox"],[role="listbox"],[role="menu"],[role="slider"]')) return;
+    if (el.closest('[role="combobox"],[role="slider"]')) return;
     if (e.code === 'Space') {
       e.preventDefault();
       togglePlay();

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { JOINTS, type Point, type Project } from '@/lib/motion';
 import { desktop } from '@/lib/desktop';
+import { editorKeysBlocked } from '@/lib/keys';
 import {
   COLORS,
   FONT,
@@ -214,16 +215,7 @@ export function useDrawing(o: {
   }
   /** Devolve true quando a tecla era para o desenho. */
   const onKey = (e: KeyboardEvent): boolean => {
-    if (!o.enabled || e.defaultPrevented) return false;
-    // Typing, menus and dialogs keep every key, Esc included.
-    const el = e.target as HTMLElement | null;
-    if (
-      el?.isContentEditable ||
-      el?.closest?.(
-        'input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="dialog"],[role="alertdialog"],[role="listbox"],[role="menu"],[role="combobox"]',
-      )
-    )
-      return false;
+    if (!o.enabled || editorKeysBlocked(e)) return false;
     const mod = e.ctrlKey || e.metaKey,
       k = e.key.toLowerCase();
     if (!mod && !e.altKey && k === 'd') {
