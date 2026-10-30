@@ -15,6 +15,7 @@ import {
 import { reviewed } from '@/lib/strokes';
 import type { Drawing } from '@/lib/drawings';
 import { clock, useClock } from '@/lib/clock';
+import { editorKeysBlocked } from '@/lib/keys';
 
 export const fmt = (t: number) =>
   `${Math.floor(t / 60)
@@ -134,7 +135,16 @@ function Timeline({
   // Largar depois de arrastar não conta como carregar na marcação.
   const dragged = useRef(false);
   const scrubbing = useRef(false);
+  // Onde, dentro da pega, se pegou: arrastar não a faz saltar para o rato.
+  const grab = useRef(0);
   const lanesRef = useRef<HTMLDivElement>(null);
+  // Largura das pistas em px, para juntar avisos a menos de 24 px uns dos outros.
+  const [trackPx, setTrackPx] = useState(0);
+  useEffect(() => {
+    const observer = new ResizeObserver(([entry]) => setTrackPx(entry.contentRect.width));
+    observer.observe(lanesRef.current!.querySelector('.lane-track')!);
+    return () => observer.disconnect();
+  }, []);
   const unavailable = busy || !hasVideo;
   const duration = Math.max(0.01, p.video.duration);
   const fps = p.video.fps;
@@ -263,6 +273,8 @@ function Timeline({
       'aria-valuenow': Number(value.toFixed(2)),
       'aria-valuetext': fmt(value),
       'aria-disabled': unavailable || undefined,
+      // Encostada à ponta da pista, a área de toque vira para dentro em vez de ficar cortada.
+      'data-flush': (edge === 'in' ? frac(value) : 1 - frac(value)) * trackPx < 18 || undefined,
       title: `${edge === 'in' ? 'Início' : 'Fim'} do trecho · ${fmt(value)} — arrasta`,
       className: `seg-grip seg-${edge}`,
       style: { left: at(value) },
@@ -270,11 +282,13 @@ function Timeline({
         if (unavailable || e.button !== 0) return;
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
+        const r = e.currentTarget.getBoundingClientRect();
+        grab.current = e.clientX - (edge === 'in' ? r.left : r.right);
         setHeld({ edge, view });
       },
       onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
         if (held?.edge !== edge) return;
-        set(timeAt(e.clientX, e.currentTarget.parentElement!));
+        set(timeAt(e.clientX - grab.current, e.currentTarget.parentElement!));
       },
       onPointerUp() {
         if (held?.edge !== edge) return;
@@ -430,9 +444,7 @@ function Timeline({
    * Delete (ou Backspace) apaga-a, ou a que acabou de ser posta.
    */
   const keyboard = useEffectEvent((e: KeyboardEvent) => {
-    const el = e.target as HTMLElement;
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (el.closest('input,textarea,select,[contenteditable="true"],[role="dialog"]')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || editorKeysBlocked(e)) return;
     if (e.key === 'Escape') {
       close();
       return;
@@ -535,13 +547,23 @@ function Timeline({
     ] as [EditMode, Key[]][]
   ).flatMap(([mode, keys]) => keys.map((k) => ({ mode, t: k.t })));
   const editName = { correct: 'Corpo', target: 'Ideal', paddle: 'Pagaia' };
-  /** Vários pontos no mesmo fotograma mostram-se como um só aviso. */
-  const flagGroups = flags.reduce<{ t: number; list: MotionFlag[] }[]>((out, f) => {
-    const last = out[out.length - 1];
-    if (last && f.t - last.t < 1.5 / fps) last.list.push(f);
-    else out.push({ t: f.t, list: [f] });
-    return out;
-  }, []);
+  /**
+   * Avisos a menos de 24 px uns dos outros são um só alvo, mas cada um continua
+   * a ver-se; vários pontos no mesmo fotograma são uma só linha.
+   */
+  const flagGap = Math.max(1.5 / fps, trackPx ? (24 / trackPx) * span : 0);
+  const flagGroups = flags
+    .filter((f) => seen(f.t))
+    .reduce<{ t: number; end: number; list: MotionFlag[]; lines: number[] }[]>((out, f) => {
+      const last = out[out.length - 1];
+      if (!last || f.t - last.end >= flagGap) out.push({ t: f.t, end: f.t, list: [f], lines: [f.t] });
+      else {
+        last.list.push(f);
+        last.end = f.t;
+        if (f.t - last.lines[last.lines.length - 1] >= 1.5 / fps) last.lines.push(f.t);
+      }
+      return out;
+    }, []);
   /** Desenhos presos a um momento; vários quase juntos contam como um. */
   const drawingTimes = (drawings ?? [])
     .filter((x) => !x.whole)
@@ -915,7 +937,7 @@ function Timeline({
           ))}
         </Lane>
         <Lane name="Avisos" className="lane-flags" empty={!flags.length} note={<small>{flags.length}</small>} track={track}>
-          {flagGroups.filter((g) => seen(g.t)).map((g) => {
+          {flagGroups.map((g) => {
             const what = g.list
               .map(
                 (f) =>
@@ -926,12 +948,16 @@ function Timeline({
               <button
                 key={g.t}
                 className="flag"
-                style={{ left: at(g.t) }}
+                style={{ left: at(g.t), width: `calc(${width(g.t, g.end)} + 5px)` }}
                 disabled={busy || !hasVideo}
                 title={`${fmt(g.t)}\n${what}`}
                 aria-label={`Rever ${fmt(g.t)}: ${what}`}
                 onClick={() => onFlag(g.list[0])}
-              />
+              >
+                {g.lines.map((t) => (
+                  <i key={t} style={{ left: `calc(${(t - g.t) / (g.end - g.t || 1)} * (100% - 5px))` }} />
+                ))}
+              </button>
             );
           })}
         </Lane>

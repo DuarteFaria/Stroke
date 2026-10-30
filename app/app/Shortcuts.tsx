@@ -1,4 +1,5 @@
 'use client';
+import { Fragment } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 type Row = [keys: string[][], what: string];
@@ -75,11 +76,12 @@ export default function Shortcuts({
                     <dt>
                       {keys.map((combo, i) => (
                         <span key={i}>
+                          {i > 0 && '/'}
                           {combo.map((k, j) => (
-                            <span key={k}>
+                            <Fragment key={k}>
                               {j > 0 && '+'}
                               <kbd>{k}</kbd>
-                            </span>
+                            </Fragment>
                           ))}
                         </span>
                       ))}
