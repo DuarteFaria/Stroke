@@ -17,11 +17,11 @@ const GROUPS: [string, Row[]][] = [
     ],
   ],
   [
-    'Marcar pagaiadas',
+    'Marcar remadas',
     [
-      [[['1'], ['2']], 'entrada e saída da pá esquerda'],
-      [[['3'], ['4']], 'entrada e saída da pá direita'],
-      [[['Delete'], ['Backspace']], 'apaga a marcação escolhida (arrasta-a para a mover)'],
+      [[['1'], ['2']], 'entrada e saída da pagaia à esquerda'],
+      [[['3'], ['4']], 'entrada e saída da pagaia à direita'],
+      [[['Delete'], ['Backspace']], 'remove a marcação escolhida (arrasta-a para a mover)'],
       [[['Esc']], 'larga a marcação escolhida'],
     ],
   ],
@@ -39,7 +39,7 @@ const GROUPS: [string, Row[]][] = [
       [[['C'], ['M'], ['S'], ['L']], 'caneta, marcador, seta, linha'],
       [[['R'], ['O'], ['T'], ['A']], 'retângulo, círculo, texto, ângulo'],
       [[['P'], ['H'], ['K'], ['B']], 'prumo, foco, laser, borracha'],
-      [[['V']], 'selecionar · Delete apaga · Ctrl+D duplica'],
+      [[['V']], 'selecionar · Delete remove · Ctrl+D duplica'],
     ],
   ],
   [

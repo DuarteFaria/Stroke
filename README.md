@@ -10,7 +10,7 @@ The app is currently a **desktop beta (v0.2.1)**, with build targets for Windows
 
 **Editor layout**
 
-- The video is always the largest thing on screen and the page never scrolls. A slim top bar, a tool rail on the left (**Análise**, **Ideal**, **Desenhar**, **Resumo**, **Comparar**, **Vista 3D**) and a collapsible inspector on the right.
+- The video is always the largest thing on screen and the page never scrolls. A slim top bar, a tool rail on the left (**Deteção**, **Ideal**, **Desenhar**, **Resumo**, **Comparar**, **Vista 3D**) and a collapsible inspector on the right.
 - A timeline dock with one shared time axis and fixed lanes: **Trecho** (draggable grips), **Esquerda** and **Direita** (entries, exits and time in the water), **Edições**, **Avisos**, **Transições** and **Desenhos**.
 - A whole-clip map above the lanes shows the trecho, cuts, marks and playhead. Drag its window to pan; zoom with the buttons, **+**/**−** or the mouse wheel (Shift+wheel pans). Analysed clips longer than 30 s open on a 20 s window.
 - **Apresentar** (**F**) leaves only the video and transport, for showing the athlete. **?** lists every shortcut.
@@ -67,8 +67,8 @@ GitHub Actions builds and publishes both installers after merges into main. Down
 
 ## Basic workflow
 
-1. Open a video. In **Análise**, set the trecho (up to 120 seconds) with the grips or **I**/**O**, and optionally the detail level and athlete area.
-2. Choose **Analisar a minha pagaiada** to track the athlete. Analysis finds camera cuts but does not add stroke marks.
+1. Open a video. In **Deteção**, set the trecho (up to 120 seconds) with the grips or **I**/**O**, and optionally the detail level and athlete area.
+2. Choose **Detetar a minha remada** to track the athlete. Analysis finds camera cuts but does not add stroke marks.
 3. Mark entries and exits with **1**–**4** or the buttons above the lanes. Click a mark to replay it in slow motion, then **Confirmar**, **Ajustar** or **Remover**; drag it to move it, **Delete** to remove it.
 4. Drag any joint on the video to correct it. **Ideal** sketches the target pose; **Desenhar** draws over the video for the athlete.
 5. Read the timings in **Resumo** and **Comparar**, and use **Apresentar** to review with the athlete.

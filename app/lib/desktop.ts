@@ -40,9 +40,31 @@ export async function analyzerFetch(route: string, options: RequestInit = {}) {
   headers.set('X-Stroke-Token', config.token);
   return fetch(`/api${route}`, { ...options, headers });
 }
+/**
+ * The analyzer answers with an error code; the words a coach reads live here,
+ * so Python never writes UI copy. Unknown codes fall back to a plain failure.
+ */
+const ANALYZER_ERRORS: Record<string, string> = {
+  video_unreadable: 'Este vídeo não abre aqui. Converte para MP4 H.264.',
+  video_too_large: 'O vídeo passa de 1 GB. Corta uma cópia mais curta.',
+  segment_invalid: 'Escolhe um trecho até 120 s.',
+  segment_beyond_video: 'O trecho passa do fim do vídeo.',
+  region_invalid: 'Escolhe outra vez a área do atleta, dentro do vídeo.',
+  follow_needs_region: 'Escolhe a área do atleta para a seguir.',
+  transitions_invalid: 'Há transições que não batem certo. Remove-as e marca-as outra vez.',
+  transition_beyond_video: 'Há uma transição depois do fim do vídeo.',
+  model_missing: 'Falta o modelo de deteção. Reinstala o Stroke.',
+  busy: 'Já há uma deteção a correr. Espera ou cancela-a.',
+  job_not_found: 'A deteção perdeu-se. Volta a detetar.',
+};
+export const analyzerError = (code?: string) =>
+  Error(ANALYZER_ERRORS[code ?? ''] ?? 'A deteção falhou.');
 /** Reads the whole video into memory; only the analysis upload needs this. */
 export async function desktopVideoFile(video: DesktopVideo) {
-  const response = await fetch(video.url);
-  if (!response.ok) throw Error('Não foi possível abrir o vídeo.');
-  return new File([await response.blob()], video.name);
+  // A failed read (a drive unplugged mid-copy) must not read as the analyzer being down.
+  try {
+    const response = await fetch(video.url);
+    if (response.ok) return new File([await response.blob()], video.name);
+  } catch {}
+  throw Error('Não foi possível abrir o vídeo.');
 }
