@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { shotAt, type Project } from '@/lib/motion';
 import { comparisonStats, comparisonStrokes, type ComparedStroke } from '@/lib/strokes';
 
@@ -21,7 +21,7 @@ function verdict(left: number | null, right: number | null) {
  * restantes. Cada pagaiada é uma barra (água cheia, recuperação esbatida)
  * que se carrega para a rever no vídeo.
  */
-export default function StrokeComparison({project: p, disabled, replay}: {
+export default memo(function StrokeComparison({project: p, disabled, replay}: {
   project: Project; disabled: boolean; replay: (a: number,b: number) => void;
 }) {
   const strokes = useMemo(() => comparisonStrokes(p), [p]);
@@ -77,4 +77,4 @@ export default function StrokeComparison({project: p, disabled, replay}: {
       Carrega numa pagaiada para a rever. Só contam marcações confirmadas.
     </p>
   </section>;
-}
+});

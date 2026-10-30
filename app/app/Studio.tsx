@@ -7,6 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import UpdateButton from './UpdateButton';
 import Timeline, { fmt, type EditMode } from './Timeline';
 import Shortcuts from './Shortcuts';
+import { clock, useClock } from '@/lib/clock';
 import { desktop, analyzerFetch, desktopVideoFile, type DesktopProject, type DesktopVideo } from '@/lib/desktop';
 import {
   useState,
@@ -70,6 +71,7 @@ import {
   BONES,
   clamp,
   poseAt,
+  frameIndex,
   motionFlags,
   cautiousLegs,
   regionAt,
@@ -87,6 +89,7 @@ import {
   type Point,
   type Frame,
   type Region,
+  type MotionFlag,
 } from '@/lib/motion';
 type AnalysisResult = {
   fps: number;
@@ -252,14 +255,36 @@ function Toggle({
 const framed =
   typeof HTMLVideoElement !== 'undefined' &&
   'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+/**
+ * Funções com identidade fixa que chamam sempre a versão mais recente: assim
+ * a doca e o transporte não se redesenham só porque o Studio se redesenhou.
+ */
+function useStable<T extends Record<string, (...args: never[]) => unknown>>(fns: T): T {
+  const latest = useRef(fns);
+  useLayoutEffect(() => {
+    latest.current = fns;
+  });
+  const [stable] = useState(
+    // oxlint-disable-next-line react/react-compiler -- só leem a ref quando chamadas, nunca no render
+    () =>
+      Object.fromEntries(
+        Object.keys(fns).map((k) => [k, (...args: never[]) => latest.current[k](...args)]),
+      ) as T,
+  );
+  return stable;
+}
+/** O relógio do transporte: só ele muda a cada fotograma. */
+function ClockText() {
+  return fmt(useClock());
+}
 export default function Studio() {
   const [p, setP] = useState<Project>(emptyProject),
     [src, setVideoSrc] = useState(''),
     [file, setFile] = useState<File | DesktopVideo | null>(null),
-    [time, setTime] = useState(0),
     [playing, setPlaying] = useState(false),
     [speed, setSpeed] = useState('0.5'),
     [loop, setLoop] = useState(true);
+  const time = useClock();
   const [mode, setMode] = useState<EditMode>('correct'),
     [showRaw, setShowRaw] = useState(false),
     [showTarget, setShowTarget] = useState(true),
@@ -287,7 +312,6 @@ export default function Studio() {
     history = useRef<Project[]>([]),
     future = useRef<Project[]>([]),
     current = useRef(p),
-    timeRef = useRef(time),
     drag = useRef<{ id: string; before: Project } | null>(null),
     scrubBefore = useRef<Project | null>(null),
     noteSeq = useRef(0),
@@ -327,9 +351,8 @@ export default function Studio() {
   const [desktopReady, setDesktopReady] = useState(false);
   useLayoutEffect(() => {
     current.current = p;
-    timeRef.current = time;
     dirtyRef.current = dirty;
-  }, [p, time, dirty]);
+  }, [p, dirty]);
   /**
    * Confirmações desaparecem sozinhas; só um problema ou um trabalho a correr
    * é que fica no ecrã à espera de quem o leia.
@@ -368,7 +391,7 @@ export default function Studio() {
         0,
         Math.max(0, p.video.duration - 1 / p.video.fps),
       );
-      setTime(v.currentTime);
+      clock.set(v.currentTime);
     }
   }
   function undo() {
@@ -442,7 +465,7 @@ export default function Studio() {
       setP(loaded);
       setFile(null);
       setSrc('');
-      setTime(loaded.segment[0]);
+      clock.set(loaded.segment[0]);
       setRelinking(true);
       history.current = [];
       future.current = [];
@@ -524,7 +547,7 @@ export default function Studio() {
     video.current?.pause();
     setSrc(f instanceof File ? URL.createObjectURL(f) : f.url);
     setFile(f);
-    setTime(0);
+    clock.set(0);
     setPlacing(null);
     if (!relinking) {
       setP({
@@ -628,7 +651,7 @@ export default function Studio() {
     const onFrame: VideoFrameRequestCallback = (_, frame) => {
       lastFrame.current = { at: performance.now(), t: frame.mediaTime };
       // O último fotograma pode dizer-se um pouco depois do fim do vídeo.
-      if (!v.paused) setTime(Math.min(frame.mediaTime, v.duration || Infinity));
+      if (!v.paused) clock.set(Math.min(frame.mediaTime, v.duration || Infinity));
       id = v.requestVideoFrameCallback(onFrame);
     };
     id = v.requestVideoFrameCallback(onFrame);
@@ -661,7 +684,7 @@ export default function Studio() {
             v.currentTime = b;
           }
         }
-        if (!framed || v.paused) setTime(v.currentTime);
+        if (!framed || v.paused) clock.set(v.currentTime);
       }
       handle = requestAnimationFrame(tick);
     };
@@ -712,7 +735,7 @@ export default function Studio() {
     // I e O, como nos editores de vídeo: o trecho começa ou acaba aqui.
     const k = e.key.toLowerCase();
     if ((k === 'i' || k === 'o') && src && !drawing.on) {
-      const t = timeRef.current, edge = k === 'i' ? 'in' : 'out';
+      const t = clock.get(), edge = k === 'i' ? 'in' : 'out';
       if (edge === 'in' ? t < seg[1] - 0.1 : t > seg[0] + 0.1)
         commit(setSegment(edge, t, current.current));
       return;
@@ -728,11 +751,11 @@ export default function Studio() {
     const step = e.shiftKey ? 1 : 1 / current.current.video.fps;
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      seek(timeRef.current + step);
+      seek(clock.get() + step);
     }
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      seek(timeRef.current - step);
+      seek(clock.get() - step);
     }
     if (e.key === 'Home') {
       e.preventDefault();
@@ -785,7 +808,7 @@ export default function Studio() {
                 name: x.name,
                 video: x.video.name,
                 segment: x.segment,
-                time: timeRef.current,
+                time: clock.get(),
                 trackedFrames: x.frames.length,
                 corrections: x.corrections.length,
                 targetKeys: x.target.length,
@@ -815,7 +838,7 @@ export default function Studio() {
       }
       setRelinking(false);
       v.currentTime = p.segment[0];
-      setTime(p.segment[0]);
+      clock.set(p.segment[0]);
       say('Vídeo ligado. Edições recuperadas.', 'ok');
       return;
     }
@@ -902,7 +925,7 @@ export default function Studio() {
           });
           const firstMoment = r.start;
           if (video.current) video.current.currentTime = firstMoment;
-          setTime(firstMoment);
+          clock.set(firstMoment);
           // A preparação já não é precisa: o painel fecha e o vídeo cresce.
           setPanel((x) => (x === 'setup' ? null : x));
           const n = cuts.length;
@@ -1022,7 +1045,7 @@ export default function Studio() {
     };
   }
   function updatePoint(id: string, pt: Point, before: Project) {
-    const t = timeRef.current;
+    const t = clock.get();
     if (mode === 'paddle') {
       return { ...before, paddle: upsert(before.paddle, t, id, pt) };
     }
@@ -1234,12 +1257,13 @@ export default function Studio() {
     if (!showPaths) return [];
     return [15, 16].flatMap((id) => {
       const chunks: string[] = [''];
-      for (const f of p.frames) {
-        if (
-          f.t < Math.max(p.segment[0], time - 1.5) ||
-          f.t > Math.min(time, p.segment[1])
-        )
-          continue;
+      const end = Math.min(time, p.segment[1]);
+      for (
+        let i = frameIndex(p.frames, Math.max(p.segment[0], time - 1.5));
+        i < p.frames.length && p.frames[i].t <= end;
+        i++
+      ) {
+        const f = p.frames[i];
         const pt = applyOffsets(f.points, p.corrections, f.t)?.[id];
         if (!pt || pt.v < 0.5) {
           if (chunks[chunks.length - 1]) chunks.push('');
@@ -1377,14 +1401,36 @@ export default function Studio() {
     compare: 'Comparar pagaiadas',
     '3d': 'Vista 3D',
   };
-  const transport = (
+  const stable = useStable({
+    commit,
+    seek,
+    togglePlay,
+    togglePresent,
+    replay: replayStroke,
+    dragSegment,
+    endSegmentEdit,
+    markTransition,
+    cancelTransition: () => setTransitionStart(null),
+    onFlag: (f: MotionFlag) => {
+      video.current?.pause();
+      seek(f.t);
+      selectMode('correct');
+      setSelected(String(f.joint));
+    },
+    onKey: (m: EditMode, t: number) => {
+      seek(t);
+      // A pagaia já não tem ferramenta: os pontos editados só se mostram.
+      if (m !== 'paddle' && m !== mode) selectMode(m);
+    },
+  });
+  const transport = useMemo(() => (
     <>
       <div className="transport">
         <button
           aria-label="Fotograma anterior"
           title="Fotograma anterior (←)"
           disabled={!ready}
-          onClick={() => seek(time - 1 / p.video.fps)}
+          onClick={() => stable.seek(clock.get() - 1 / p.video.fps)}
         >
           <SkipBack size={15} />
         </button>
@@ -1393,7 +1439,7 @@ export default function Studio() {
           aria-label={playing ? 'Pausa' : 'Reproduzir'}
           title="Reproduzir ou pausar (espaço)"
           disabled={!ready}
-          onClick={togglePlay}
+          onClick={stable.togglePlay}
         >
           {playing ? <Pause size={17} /> : <Play size={17} />}
         </button>
@@ -1401,12 +1447,14 @@ export default function Studio() {
           aria-label="Fotograma seguinte"
           title="Fotograma seguinte (→)"
           disabled={!ready}
-          onClick={() => seek(time + 1 / p.video.fps)}
+          onClick={() => stable.seek(clock.get() + 1 / p.video.fps)}
         >
           <SkipForward size={15} />
         </button>
         <span className="clock">
-          <strong>{fmt(time)}</strong>
+          <strong>
+            <ClockText />
+          </strong>
           <span>/ {fmt(p.video.duration)}</span>
         </span>
         <Choice
@@ -1465,13 +1513,14 @@ export default function Studio() {
         aria-pressed={present}
         disabled={!src}
         title={present ? 'Voltar ao editor (F ou Esc)' : 'Só o vídeo, para mostrar ao atleta (F)'}
-        onClick={togglePresent}
+        onClick={stable.togglePresent}
       >
         {present ? <Minimize size={15} /> : <Maximize size={15} />}
         {present ? 'Voltar' : 'Apresentar'}
       </button>
     </>
-  );
+  ), [ready, playing, speed, loop, showRaw, showTarget, showPaths, showAngles, present, src,
+    p.targetEnabled, p.video.fps, p.video.duration, stable]);
   return (
     <main
       className="studio"
@@ -1643,7 +1692,7 @@ export default function Studio() {
                 }}
                 onPause={() => setPlaying(false)}
                 onTimeUpdate={(e) => {
-                  if (!framed || e.currentTarget.paused) setTime(e.currentTarget.currentTime);
+                  if (!framed || e.currentTarget.paused) clock.set(e.currentTarget.currentTime);
                 }}
                 onError={() =>
                   say('Não deu para ler o vídeo. Tenta MP4 H.264.', 'warn')
@@ -2022,7 +2071,7 @@ export default function Studio() {
                   key={src}
                   project={p}
                   disabled={busy || !src}
-                  replay={replayStroke}
+                  replay={stable.replay}
                 />
               )}
               {inspector === '3d' && (
@@ -2036,7 +2085,6 @@ export default function Studio() {
         <Timeline
           key={src}
           project={p}
-          time={time}
           busy={busy}
           hasVideo={!!src}
           tracked={tracked}
@@ -2045,24 +2093,15 @@ export default function Studio() {
           transitionStart={transitionStart}
           drawings={p.drawings}
           keysOff={drawing.on}
-          commit={commit}
-          seek={seek}
-          replay={replayStroke}
-          dragSegment={dragSegment}
-          endSegmentEdit={endSegmentEdit}
-          markTransition={markTransition}
-          cancelTransition={() => setTransitionStart(null)}
-          onFlag={(f) => {
-            video.current?.pause();
-            seek(f.t);
-            selectMode('correct');
-            setSelected(String(f.joint));
-          }}
-          onKey={(m, t) => {
-            seek(t);
-            // A pagaia já não tem ferramenta: os pontos editados só se mostram.
-            if (m !== 'paddle' && m !== mode) selectMode(m);
-          }}
+          commit={stable.commit}
+          seek={stable.seek}
+          replay={stable.replay}
+          dragSegment={stable.dragSegment}
+          endSegmentEdit={stable.endSegmentEdit}
+          markTransition={stable.markTransition}
+          cancelTransition={stable.cancelTransition}
+          onFlag={stable.onFlag}
+          onKey={stable.onKey}
         >
           {transport}
         </Timeline>
