@@ -903,6 +903,15 @@ h3 {
   padding: 6px 12px;
   font-size: var(--type-sm);
 }
+/* Cancelled, waiting for the detector to stop: the numbers stand down at once. */
+.stage-veil strong,
+.stage-veil [data-slot='progress'] {
+  transition: opacity var(--motion);
+}
+.stage-veil[data-cancelling] strong,
+.stage-veil[data-cancelling] [data-slot='progress'] {
+  opacity: 0.4;
+}
 /* Angles read off the frame itself, each with its limb's dot. */
 .angle-chips {
   position: absolute;

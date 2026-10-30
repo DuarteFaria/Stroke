@@ -299,6 +299,8 @@ export default function Studio() {
     }),
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0),
+    // Cancelar responde logo: o botão desliga-se até o detetor confirmar.
+    [cancelling, setCancelling] = useState(false),
     [job, setJob] = useState(''),
     [analyzer, setAnalyzer] = useState<'starting' | 'on' | 'off'>('starting'),
     [confirm, setConfirm] = useState<Confirm | null>(null),
@@ -701,6 +703,10 @@ export default function Studio() {
       return;
     }
     if (e.key === 'Escape') {
+      if (selectingRegion) {
+        toggleRegion();
+        return;
+      }
       setPlacing(null);
       hush();
       if (present) togglePresent();
@@ -930,15 +936,18 @@ export default function Studio() {
           // A preparação já não é precisa: o painel fecha e o vídeo cresce.
           setPanel((x) => (x === 'setup' ? null : x));
           const n = cuts.length;
+          const found = r.detected > r.total * 0.6;
           say(
-            !n
+            !found
+              ? `Deteção pronta. Só encontrei o atleta em ${Math.round((r.detected / r.total) * 100)}% dos fotogramas: escolhe a área do atleta ou a deteção detalhada e volta a detetar.`
+              : !n
               ? 'Deteção pronta. Podes rever o movimento e marcar as entradas e saídas no vídeo.'
               : !fits
                 ? `Deteção pronta. Encontrei ${n} ${n === 1 ? 'corte' : 'cortes'} de câmara, mas já não cabem mais transições.`
                 : n === 1
                   ? 'Deteção pronta. Encontrei 1 corte de câmara e marquei-o como transição.'
                   : `Deteção pronta. Encontrei ${n} cortes de câmara e marquei-os como transições.`,
-            r.detected > r.total * 0.6 ? 'ok' : 'warn',
+            found ? 'ok' : 'warn',
           );
           break;
         }
@@ -955,6 +964,7 @@ export default function Studio() {
       );
     } finally {
       setBusy(false);
+      setCancelling(false);
       setJob('');
     }
   }
@@ -1224,6 +1234,7 @@ export default function Studio() {
   }
   function cancelJob() {
     cancelled.current = true;
+    setCancelling(true);
     if (job)
       void analyzerFetch(`/jobs/${job}`, { method: 'DELETE' }).catch(() => {});
   }
@@ -1771,11 +1782,13 @@ export default function Studio() {
                 </dl>
               )}
               {busy && (
-                <div className="stage-veil">
+                <div className="stage-veil" data-cancelling={cancelling || undefined}>
                   <LoaderCircle size={24} className="spin" />
                   <strong>{progress}%</strong>
                   <Progress aria-label="Progresso da deteção" value={progress} />
-                  <button onClick={cancelJob}>Cancelar</button>
+                  <button disabled={cancelling} onClick={cancelJob}>
+                    {cancelling ? 'A cancelar…' : 'Cancelar'}
+                  </button>
                 </div>
               )}
               {(drawing.on || present) && <DrawingToolbar d={drawing} />}
