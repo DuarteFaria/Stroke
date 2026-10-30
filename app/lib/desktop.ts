@@ -11,7 +11,7 @@ export type DesktopUpdate = {
 declare global {
   interface Window {
     strokeDesktop?: {
-      config(): Promise<{ api: string; token: string; version: string; update: DesktopUpdate | null }>;
+      config(): Promise<{ token: string; version: string; update: DesktopUpdate | null }>;
       openProject(): Promise<DesktopProject | null>;
       adoptProject(id: string): Promise<DesktopVideo | null>;
       openVideo(): Promise<DesktopVideo | null>;
@@ -27,6 +27,7 @@ declare global {
       installUpdate(): Promise<void>;
       retryUpdate(): Promise<void>;
       onUpdate(fn: (update: DesktopUpdate | null) => void): () => void;
+      onFlush(fn: () => void): () => void;
     };
   }
 }
@@ -37,11 +38,11 @@ export async function analyzerFetch(route: string, options: RequestInit = {}) {
   const config = await bridge.config();
   const headers = new Headers(options.headers);
   headers.set('X-Stroke-Token', config.token);
-  return fetch(`${config.api}${route}`, { ...options, headers });
+  return fetch(`/api${route}`, { ...options, headers });
 }
+/** Reads the whole video into memory; only the analysis upload needs this. */
 export async function desktopVideoFile(video: DesktopVideo) {
-  const config = await desktop()!.config();
-  const response = await fetch(video.url, { headers: { 'X-Stroke-Token': config.token } });
+  const response = await fetch(video.url);
   if (!response.ok) throw Error('Não foi possível abrir o vídeo.');
   return new File([await response.blob()], video.name);
 }

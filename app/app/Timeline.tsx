@@ -281,6 +281,11 @@ export default function Timeline({
         setHeld(null);
         endSegmentEdit();
       },
+      onPointerCancel() {
+        if (held?.edge !== edge) return;
+        setHeld(null);
+        endSegmentEdit();
+      },
       onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
         if (unavailable) return;
         const step = e.shiftKey ? 1 : 1 / fps;

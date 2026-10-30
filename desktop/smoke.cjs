@@ -29,8 +29,8 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   // Main-process fetch bypasses the document CSP. Exercise the actual renderer
   // on every CI run, even without a personal project/video fixture.
   const rendererHealth = await run(`(async () => {
-    const {api,token}=await window.strokeDesktop.config();
-    const response=await fetch(api+'/health',{headers:{'X-Stroke-Token':token}});
+    const {token}=await window.strokeDesktop.config();
+    const response=await fetch('/api/health',{headers:{'X-Stroke-Token':token}});
     if (!response.ok) throw Error('Renderer analyzer health: '+response.status);
     return response.json();
   })()`);
@@ -38,6 +38,9 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   assert.equal(rendererHealth.modelReady,true);
   await waitFor(`!document.body.innerText.includes('Analisador desligado')`);
   checks.push('renderer-to-analyzer connection under document CSP');
+  assert.equal(await run(`fetch('/api/health').then(r => r.status)`), 401);
+  assert.equal(await run(`fetch('/index.html', { headers: { Range: 'bytes=0-9' } }).then(async r => r.status + ' ' + (await r.text()).length)`), '206 10');
+  checks.push('proxy keeps analyzer auth', 'byte ranges');
   if (process.env.STROKE_SMOKE_ANALYSIS_VIDEO) {
     const clip = await fs.readFile(process.env.STROKE_SMOKE_ANALYSIS_VIDEO);
     for (const quality of ['standard', 'detailed']) {
@@ -111,6 +114,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     checks.push('left/right means and verdict', 'per-stroke bars and replay', 'comparison compact layout');
     return checks;
   }
+  await click('Análise');
   await click('Analisar a minha pagaiada');
   const original = JSON.parse(await fs.readFile(fixture, 'utf8'));
   if (original.corrections.length || original.target.length) {

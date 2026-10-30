@@ -12,7 +12,7 @@ Open a video, select up to 120 seconds and choose **Detetar o atleta**. The 1 GB
 
 The app remembers the video location for projects on this computer. If the video moves, use **Escolher o original** to reconnect it. Name, size, dimensions and duration are checked; this is not a cryptographic content check.
 
-Recovery snapshots are written after editor state changes. If the previous session has unsaved edits, the next launch offers recovery. These snapshots are not a project archive or a substitute for saving. Closing with unsaved changes offers a return to the editor or closing with recovery retained. A second launch focuses the existing window.
+Recovery snapshots are written about a second after editor state changes, never in the middle of a drag. If the previous session has unsaved edits, the next launch offers recovery. These snapshots are not a project archive or a substitute for saving. Closing with unsaved changes offers a return to the editor or closing with recovery retained. A second launch focuses the existing window.
 
 The **Stroke** menu shows the version. **Ajuda → Exportar diagnóstico…** exports the application/analyzer log. Local recovery, video-location records, temporary analysis files and logs live in Electron's per-user application data folder (`%APPDATA%/stroke-desktop` by default). Ordinary job completion/cancellation removes temporary videos; the next launch removes leftovers from interrupted jobs.
 
@@ -54,7 +54,7 @@ The shared build command is `python scripts/build_desktop.py`, using a developme
 
 Before uploading an installer, CI runs backend tests, frontend type checks/tests, and `python scripts/smoke_desktop.py`. The latter launches the packaged app, checks the renderer and API authentication, and runs video decoding plus both Full and Heavy pose models on a generated blank clip. This verifies the native analyzer and its bundled resources without downloading personal footage; it does not assess athlete detection accuracy. Mac installation and first-launch security prompts still need a real tester because hosted builds do not simulate a downloaded app on another Mac.
 
-The desktop frontend is a static Vite build of the same Studio component. It does not need Vinext's server at runtime. Electron serves these bundled assets on a random loopback port and launches the Python sidecar on another random loopback port. A fresh session token protects analyzer requests and selected-video reads. The renderer is sandboxed with context isolation and no Node integration; its preload bridge exposes only project, video and recovery operations. External navigation and new windows are blocked.
+The desktop frontend is a static Vite build of the same Studio component. It does not need Vinext's server at runtime. Electron serves these bundled assets on a random loopback port and launches the Python sidecar on another random loopback port. A fresh session token protects analyzer requests, which the renderer sends through the local server's `/api` path. Each selected video is served at its own unguessable path with byte ranges, so playback streams from disk; the whole file is read only to upload it for analysis. The renderer is sandboxed with context isolation and no Node integration; its preload bridge exposes only project, video and recovery operations. External navigation and new windows are blocked.
 
 ## Verification
 
@@ -82,8 +82,10 @@ To release, bump `version` in `desktop/package.json`, add a matching `## <versio
 
 ### Startup diagnostics
 
-The editor loads after analyzer readiness so its document connection policy includes
-the assigned analyzer origin. The persistent cache keeps repeat launches fast.
+The editor loads as soon as the local server is up. The analyzer starts in the
+background and **Analisar** shows "A preparar a análise…" until it is ready. Requests
+reach it through the local server's `/api` proxy, so the document connection policy
+never needs its port. The persistent cache keeps repeat launches fast.
 `desktop.log` now records elapsed milliseconds for analyzer spawn, editor load and
 analyzer readiness, plus Python import time. The packaged entry restores
 `STROKE_MPL_CACHE` as `MPLCONFIGDIR` after PyInstaller's runtime hooks, so MediaPipe's
