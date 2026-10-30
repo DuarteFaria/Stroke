@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { memo, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { ChevronsDown, ChevronsUp, Flag, X, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   JOINTS,
@@ -14,6 +14,7 @@ import {
 } from '@/lib/motion';
 import { reviewed } from '@/lib/strokes';
 import type { Drawing } from '@/lib/drawings';
+import { clock, useClock } from '@/lib/clock';
 
 export const fmt = (t: number) =>
   `${Math.floor(t / 60)
@@ -54,7 +55,6 @@ type Picked = { kind: 'event'; id: string } | { kind: 'transition'; index: numbe
 export type EditMode = 'correct' | 'paddle' | 'target';
 type Props = {
   project: Project;
-  time: number;
   busy: boolean;
   hasVideo: boolean;
   tracked: boolean;
@@ -78,15 +78,19 @@ type Props = {
   children: React.ReactNode;
 };
 
+/** O que anda a cada fotograma (as agulhas): a reproduzir, só isto se redesenha. */
+function Live({ children }: { children: (t: number) => React.ReactNode }) {
+  return children(useClock());
+}
+
 /**
  * A doca do editor: um único eixo de tempo partilhado por todas as pistas, e
  * uma linha de ações para o que estiver escolhido ou para o fotograma atual.
  * O estado temporal (trecho, marcações, edições, avisos, transições) vê-se
  * aqui em vez de viver só em listas.
  */
-export default function Timeline({
+function Timeline({
   project: p,
-  time,
   busy,
   hasVideo,
   tracked,
@@ -136,10 +140,11 @@ export default function Timeline({
   const fps = p.video.fps;
   const [s0, s1] = p.segment;
   const segLength = s1 - s0;
-  const inSegment = time >= s0 - 0.001 && time <= s1 + 0.001;
+  const inSegment = useClock((t) => t >= s0 - 0.001 && t <= s1 + 0.001);
   const transitions = p.transitions || [];
   // Numa transição não se rema: não há pagaiadas para marcar.
-  const inTransition = !!transitionAt(time, transitions);
+  const inTransition = useClock((t) => !!transitionAt(t, transitions));
+  const transitionBlocked = useClock((t) => transitionStart !== null && t <= transitionStart);
   /**
    * Onde fica uma marcação levada para `t`: no fotograma do trecho fora das
    * transições mais perto dali (num empate, do lado de onde vinha). Sem
@@ -194,26 +199,21 @@ export default function Timeline({
     setZoom({ start: clamp(around - anchor * w, 0, duration - w), span: w });
   };
   const zoomBy = (factor: number) => {
+    const time = clock.get();
     const here = time >= view[0] && time <= view[1];
     zoomTo(span * factor, here ? time : view[0] + span / 2, here ? (time - view[0]) / span : 0.5);
   };
   // Quando o tempo anda, o cursor não sai da janela: a reproduzir vira a
   // página, um salto longe centra-o. Arrastar a janela para outro lado fica.
-  const [followed, setFollowed] = useState(time);
-  if (followed !== time) setFollowed(time);
-  if (
-    followed !== time &&
-    zoom &&
-    !held &&
-    !pan &&
-    hasVideo &&
-    (time < view[0] - 1e-6 || time > view[1] + 1e-6)
-  ) {
+  const follow = useEffectEvent((time: number) => {
+    if (!zoom || held || pan || !hasVideo || (time >= view[0] - 1e-6 && time <= view[1] + 1e-6))
+      return;
     const ahead = time > view[1];
     const near = (ahead ? time - view[1] : view[0] - time) < span * 0.25;
     const start = near ? time - span * (ahead ? 0.1 : 0.9) : time - span / 2;
     setZoom({ start: clamp(start, 0, Math.max(0, duration - span)), span });
-  }
+  });
+  useEffect(() => clock.subscribe(() => follow(clock.get())), []);
   const frac = (t: number) => (clamp(t, view[0], view[1]) - view[0]) / span;
   const at = (t: number) => `${frac(t) * 100}%`;
   const width = (a: number, b: number) => `${Math.max(0, frac(b) - frac(a)) * 100}%`;
@@ -386,7 +386,7 @@ export default function Timeline({
     };
   };
   /** A seguinte à última marcação antes do cursor, pela ordem de MARKS. */
-  const prev = events.filter((e) => e.t <= time + 0.5 / fps).at(-1);
+  const prev = events[useClock((t) => events.filter((e) => e.t <= t + 0.5 / fps).length) - 1];
   const next = prev
     ? MARKS[(MARKS.findIndex((m) => m.side === prev.side && m.kind === prev.kind) + 1) % 4]
     : undefined;
@@ -396,6 +396,7 @@ export default function Timeline({
    */
   const add = (side: EventMark['side'], kind: EventMark['kind']) => {
     if (inTransition) return;
+    const time = clock.get();
     const same = p.events.find(
       (x) =>
         x.review !== 'skipped' &&
@@ -632,7 +633,7 @@ export default function Timeline({
                 >
                   +1 fotograma
                 </button>
-                <button disabled={unavailable || !inSegment || inTransition} onClick={() => move(time)}>
+                <button disabled={unavailable || !inSegment || inTransition} onClick={() => move(clock.get())}>
                   Marcar aqui
                 </button>
                 <select
@@ -750,7 +751,7 @@ export default function Timeline({
               disabled={
                 busy ||
                 !hasVideo ||
-                (transitionStart !== null && time <= transitionStart)
+                transitionBlocked
               }
               title="Trecho sem remar: viragem, pausa. Volta a analisar para aplicar."
               onClick={markTransition}
@@ -814,7 +815,7 @@ export default function Timeline({
             .map((e) => (
               <span key={e.id} className={`map-tick side-${e.side}`} style={{ left: whole(e.t) }} />
             ))}
-          {hasVideo && <span className="map-playhead" style={{ left: whole(time) }} />}
+          {hasVideo && <Live>{(t) => <span className="map-playhead" style={{ left: whole(t) }} />}</Live>}
           {span < duration - 1e-3 && (
             <span
               className="map-window"
@@ -952,13 +953,17 @@ export default function Timeline({
             />
           ))}
           {transitionStart !== null && (
-            <span
-              className="transition pending"
-              style={{
-                left: at(Math.min(transitionStart, time)),
-                width: width(Math.min(transitionStart, time), Math.max(transitionStart, time)),
-              }}
-            />
+            <Live>
+              {(t) => (
+                <span
+                  className="transition pending"
+                  style={{
+                    left: at(Math.min(transitionStart, t)),
+                    width: width(Math.min(transitionStart, t), Math.max(transitionStart, t)),
+                  }}
+                />
+              )}
+            </Live>
           )}
         </Lane>
         <Lane name="Desenhos" className="lane-sketches" empty={!drawingCount} note={<small>{drawingCount}</small>} track={track}>
@@ -992,12 +997,21 @@ export default function Timeline({
               <span className="outside" style={{ left: at(s1), right: 0 }} />
             </>
           )}
-          {hasVideo && <span className="playhead" style={{ left: at(time) }} />}
+          {hasVideo && <Live>{(t) => <span className="playhead" style={{ left: at(t) }} />}</Live>}
         </div>
       </div>
     </section>
   );
 }
+
+/**
+ * A doca só se redesenha quando as props mudam. O memo fica num invólucro: o
+ * React 19.2 não atualiza os useEffectEvent de um componente em memo direto,
+ * e o teclado e o seguir do cursor ficavam com o estado do primeiro render.
+ */
+export default memo(function MemoTimeline(props: Props) {
+  return <Timeline {...props} />;
+});
 
 /** Uma pista: nome à esquerda, e o tempo partilhado à direita. */
 function Lane({

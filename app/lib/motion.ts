@@ -172,8 +172,8 @@ const lerp = (a: Point, b: Point, f: number): Point => ({
   y: a.y + (b.y - a.y) * f,
   v: Math.min(a.v, b.v),
 });
-export function poseAt(frames: Frame[], t: number): Point[] | null {
-  if (!frames.length) return null;
+/** O primeiro fotograma em `t` ou depois. */
+export function frameIndex(frames: Frame[], t: number) {
   let lo = 0,
     hi = frames.length;
   while (lo < hi) {
@@ -181,6 +181,11 @@ export function poseAt(frames: Frame[], t: number): Point[] | null {
     if (frames[m].t < t) lo = m + 1;
     else hi = m;
   }
+  return lo;
+}
+export function poseAt(frames: Frame[], t: number): Point[] | null {
+  if (!frames.length) return null;
+  const lo = frameIndex(frames, t);
   const b = frames[lo],
     a = frames[lo - 1];
   if (b && Math.abs(b.t - t) < 0.001) return b.points;
@@ -189,17 +194,28 @@ export function poseAt(frames: Frame[], t: number): Point[] | null {
   if (!a.points || !b.points || b.breakBefore || b.t - a.t > 0.25) return null;
   return a.points.map((p, i) => lerp(p, b.points![i], (t - a.t) / (b.t - a.t)));
 }
+/** As chaves de cada ponto; uma lista de chaves nunca muda no sítio, só é trocada. */
+const keysById = new WeakMap<Key[], Map<string, Key[]>>();
 export function keyAt(
   keys: Key[],
   t: number,
   hold = true,
 ): Record<string, Point> {
   const out: Record<string, Point> = {};
-  const ids = new Set(keys.flatMap((k) => Object.keys(k.points)));
-  for (const id of ids) {
-    const ks = keys.filter((k) => k.points[id]);
+  let byId = keysById.get(keys);
+  if (!byId) {
+    byId = new Map();
+    for (const k of keys)
+      for (const id of Object.keys(k.points)) {
+        const list = byId.get(id);
+        if (list) list.push(k);
+        else byId.set(id, [k]);
+      }
+    keysById.set(keys, byId);
+  }
+  for (const [id, ks] of byId) {
     const b = ks.find((k) => k.t >= t);
-    const a = [...ks].reverse().find((k) => k.t <= t);
+    const a = ks.findLast((k) => k.t <= t);
     if (a && b)
       out[id] = lerp(
         a.points[id],
