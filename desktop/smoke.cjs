@@ -103,7 +103,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     await click('Vista 3D');
   }
   if (process.env.STROKE_SMOKE_COMPARISONS) {
-    await click('Comparar');
+    await click('Tempos');
     await waitFor(`document.querySelectorAll('.stroke-bars button').length === 4`);
     assert.equal(await run(`!!document.querySelector('.comparison-curve')`),false);
     assert.equal(await run(`document.querySelector('.comparison-table tbody tr td').textContent`),'0.30 s');
@@ -123,11 +123,11 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
     checks.push('left/right means and verdict', 'per-stroke bars and replay', 'comparison compact layout');
     return checks;
   }
-  assert.equal(await run(`!!document.querySelector('#timing-summary')`), false);
-  assert.equal(await run(`document.querySelector('.rail').getBoundingClientRect().height > 0`), true);
+  assert.equal(await run(`!!document.querySelector('#stroke-comparison')`), false);
+  assert.equal(await run(`document.querySelector('.view-tabs').getBoundingClientRect().height > 0`), true);
   assert.equal(await run(`document.querySelectorAll('.dock .marker').length`), original.events.filter(e => e.review !== 'skipped' && e.t >= original.segment[0] && e.t <= original.segment[1]).length);
   assert.equal(await run(`document.body.innerText.includes('Sugerir marcações') || document.body.innerText.includes('Rever sugestões')`), false);
-  assert.equal(await run(`['Deteção','Ideal','Desenhar','Resumo','Comparar','Vista 3D'].every(label => [...document.querySelectorAll('.rail .rail-btn')].some(b => b.textContent.trim() === label))`), true);
+  assert.equal(await run(`['Deteção','Tempos','Vista 3D'].every(label => [...document.querySelectorAll('.view-tabs button')].some(b => b.textContent.trim() === label)) && ['Editar ideal','Desenhar'].every(label => [...document.querySelectorAll('.dock-head .modes button')].some(b => b.textContent.trim() === label))`), true);
   await click('Deteção');
   assert.equal(await run(`document.querySelector('.inspector .setup').innerText.includes('Deteção detalhada') && document.querySelector('.inspector .setup').innerText.includes('Área do atleta')`), true);
   await click('Área do atleta');
@@ -163,11 +163,11 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await settle();
   await run(`document.querySelector('button[title="Saída · esquerda neste fotograma (2)"]').click()`);
   await waitFor(`!!document.querySelector('.dock .marker-exit')`);
-  await click('Resumo');
-  await waitFor(`[...document.querySelectorAll('.timing-summary dd')].some(x => x.textContent !== '—')`);
-  assert.equal(await run(`!!document.querySelector('.rail .rail-btn[aria-pressed="true"]')`),true);
+  await click('Tempos');
+  await waitFor(`[...document.querySelectorAll('.comparison-table td')].some(x => x.textContent !== '—')`);
+  assert.equal(await run(`!!document.querySelector('.view-tabs button[aria-pressed="true"]')`),true);
   await settle();
-  await capture('timing-summary.png');
+  await capture('tempos.png');
   await run(`document.querySelector('button[aria-label="Fechar painel"]').click()`);
   await settle();
   await capture('stroke-timeline.png');
@@ -184,15 +184,15 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await capture('stroke-adjustment.png');
   await run(`document.querySelector('button[aria-label="Fechar a marcação"]').click()`);
   checks.push('visible body tools', 'manual marker', 'frame adjustment', 'confirmation and removal undo');
-  await click('Ideal');
-  await waitFor(`document.querySelector('.inspector')?.getAttribute('aria-label') === 'Ideal' && document.body.innerText.includes('Criar movimento ideal')`);
+  await click('Editar ideal');
+  await waitFor(`document.querySelector('.inspector')?.getAttribute('aria-label') === 'Editar ideal' && document.body.innerText.includes('Criar movimento ideal')`);
   await settle();
   await capture('ideal-tool.png');
-  await click('Ideal');
+  await click('Editar ideal');
   await waitFor(`!document.querySelector('.inspector')`);
   await settle();
   await capture('body-analysis.png');
-  await click('Resumo');
+  await click('Tempos');
   await run(`(() => { const t = document.querySelector('#notes'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, 'Desktop smoke: correção e recuperação'); t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   await click('Guardar');
   await waitFor(`document.body.innerText.includes('Projeto guardado.')`);
@@ -205,7 +205,7 @@ module.exports = async function smokeTest({ win, dialog, api, token, data }) {
   await click('Abrir projeto');
   await waitFor(`document.querySelector('video')?.readyState >= 2`);
   await settle();
-  await click('Resumo');
+  await click('Tempos');
   assert.equal(await run(`document.querySelector('#notes').value`), project.notes);
   checks.push('reopen with remembered video');
   await run(`window.strokeDesktop.snapshot(${JSON.stringify(JSON.stringify(project))}, true)`);

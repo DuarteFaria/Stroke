@@ -12,10 +12,10 @@ not receive these changes automatically.
 3. Click a marker to replay nearby footage. Use **Ajustar** to move it by frames,
    change its side/type, or choose **Marcar aqui** at the current video frame.
 4. **Concluir** confirms an adjustment. **Remover** removes the selected marker;
-   the sidebar's **Anular** button or Ctrl+Z undoes edits and removals.
-5. The left toolbar switches between **Editar** (body/paddle tools) and
-   **Resumo** (confirmed timing). Detail and athlete-area controls sit immediately
-   before the main analysis button.
+   the header's **Anular** button or Ctrl+Z undoes edits and removals.
+5. The header tabs open **Deteção** (trecho, detail and athlete area, then the
+   main detection button), **Tempos** (confirmed timing and notes) and
+   **Vista 3D**. **Editar ideal** and **Desenhar** sit next to **Apresentar**.
 6. Save the `.stroke.json` project and keep its original video. Existing saved
    automatic suggestions remain reviewable, but new ones are no longer generated.
 

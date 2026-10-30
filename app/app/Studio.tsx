@@ -1,5 +1,4 @@
 'use client';
-import { TimingSummary } from './StrokeReview';
 import StrokeComparison from './StrokeComparison';
 import Pose3D from './Pose3D';
 import { useDrawing, DrawingLayer, DrawingToolbar } from './Drawing';
@@ -42,7 +41,6 @@ import {
   Ruler,
   Target,
   Rotate3d,
-  Columns2,
   PanelRightClose,
   Brush,
   Maximize,
@@ -181,13 +179,14 @@ const PADDLE_POINTS: [string, string][] = [
 const MODES: Record<EditMode, { label: string; hud: string; icon: typeof Ruler }> = {
   correct: { label: 'Corpo', hud: 'Arrasta os pontos', icon: PersonStanding },
   paddle: { label: 'Pagaia', hud: 'Carrega para pôr um ponto', icon: Ruler },
-  target: { label: 'Ideal', hud: 'Arrasta o esqueleto laranja', icon: Target },
+  target: { label: 'Editar ideal', hud: 'Arrasta o esqueleto laranja', icon: Target },
 };
 /** O que o painel à direita mostra; null fecha-o e o vídeo cresce. */
-type Panel = 'setup' | 'tool' | 'summary' | 'compare' | '3d' | null;
-const VIEWS: [Exclude<Panel, 'setup' | 'tool' | null>, string, typeof Ruler][] = [
-  ['summary', 'Resumo', ChartNoAxesColumn],
-  ['compare', 'Comparar', Columns2],
+type Panel = 'setup' | 'tool' | 'times' | '3d' | null;
+/** Os separadores do cabeçalho: cada um abre o seu painel, e fecha-o outra vez. */
+const VIEWS: [Exclude<Panel, 'tool' | null>, string, typeof Ruler][] = [
+  ['setup', 'Deteção', ScanLine],
+  ['times', 'Tempos', ChartNoAxesColumn],
   ['3d', 'Vista 3D', Rotate3d],
 ];
 const deg = (v: number | null) => (v === null ? '—' : `${v.toFixed(1)}°`);
@@ -1400,8 +1399,7 @@ export default function Studio() {
   const panelTitle: Record<Exclude<Panel, null>, string> = {
     setup: 'Deteção',
     tool: MODES[mode].label,
-    summary: 'Resumo',
-    compare: 'Comparar remadas',
+    times: 'Tempos',
     '3d': 'Vista 3D',
   };
   const stable = useStable({
@@ -1409,6 +1407,8 @@ export default function Studio() {
     seek,
     togglePlay,
     togglePresent,
+    toggleIdeal: () => selectMode(mode === 'target' && !drawing.on ? 'correct' : 'target'),
+    toggleDrawing,
     replay: replayStroke,
     dragSegment,
     endSegmentEdit,
@@ -1489,7 +1489,7 @@ export default function Studio() {
           checked={showTarget}
           onChange={setShowTarget}
           disabled={!p.targetEnabled}
-          title={p.targetEnabled ? undefined : 'Cria primeiro o movimento ideal (ferramenta Ideal)'}
+          title={p.targetEnabled ? undefined : 'Cria primeiro o movimento ideal (Editar ideal)'}
         >
           <i className="sw" style={{ background: INK.target }} />
           Ideal
@@ -1511,6 +1511,27 @@ export default function Studio() {
         <kbd>?</kbd>
         <span className="sr-only">Atalhos do teclado</span>
       </button>
+      {/* O que muda o que o vídeo faz fica junto do vídeo, ao lado de Apresentar. */}
+      <span className="modes">
+        <button
+          aria-pressed={mode === 'target' && !drawing.on}
+          disabled={!src}
+          title={`Editar ideal: ${MODES.target.hud.toLowerCase()} (G)`}
+          onClick={stable.toggleIdeal}
+        >
+          <Target size={15} />
+          <span>Editar ideal</span>
+        </button>
+        <button
+          aria-pressed={drawing.on}
+          disabled={!src || busy}
+          title="Desenhar por cima do vídeo (D)"
+          onClick={stable.toggleDrawing}
+        >
+          <Brush size={15} />
+          <span>Desenhar</span>
+        </button>
+      </span>
       <button
         className="present"
         aria-pressed={present}
@@ -1519,11 +1540,11 @@ export default function Studio() {
         onClick={stable.togglePresent}
       >
         {present ? <Minimize size={15} /> : <Maximize size={15} />}
-        {present ? 'Voltar' : 'Apresentar'}
+        <span>{present ? 'Voltar' : 'Apresentar'}</span>
       </button>
     </>
   ), [ready, playing, speed, loop, showRaw, showTarget, showPaths, showAngles, present, src,
-    p.targetEnabled, p.video.fps, p.video.duration, stable]);
+    busy, mode, drawing.on, p.targetEnabled, p.video.fps, p.video.duration, stable]);
   return (
     <main
       className="studio"
@@ -1578,6 +1599,21 @@ export default function Studio() {
               <Redo2 size={15} />
             </button>
           </span>
+          <nav className="view-tabs" aria-label="Painéis">
+            {VIEWS.map(([key, label, Icon]) => (
+              <button
+                key={key}
+                aria-pressed={inspector === key}
+                // Um ponto simples, não uma cor: este vídeo ainda precisa da primeira deteção.
+                data-attention={(key === 'setup' && !!src && !tracked && !busy) || undefined}
+                title={key === 'setup' ? 'Trecho, área do atleta e deteção' : undefined}
+                onClick={() => openView(key)}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </nav>
           <button disabled={busy} onClick={openProject}>
             <FolderOpen size={15} />
             Abrir projeto
@@ -1625,55 +1661,6 @@ export default function Studio() {
         className="workspace"
         data-inspector={inspector || undefined}
       >
-        <nav className="rail" aria-label="Ferramentas">
-          <button
-            className="rail-btn"
-            aria-pressed={inspector === 'setup'}
-            data-attention={(!!src && !tracked && !busy) || undefined}
-            title="Trecho, área do atleta e deteção"
-            onClick={() => openView('setup')}
-          >
-            <ScanLine size={19} />
-            <span>Deteção</span>
-          </button>
-          <span className="rail-sep" />
-          <fieldset className="rail-group">
-            <legend className="sr-only">O que editas no vídeo</legend>
-            {/* Os pontos do corpo arrastam-se sempre; Ideal liga e desliga. */}
-            <button
-              className="rail-btn"
-              aria-pressed={mode === 'target' && !drawing.on}
-              disabled={!src}
-              title={`Ideal: ${MODES.target.hud.toLowerCase()} (G)`}
-              onClick={() => selectMode(mode === 'target' && !drawing.on ? 'correct' : 'target')}
-            >
-              <Target size={19} />
-              <span>Ideal</span>
-            </button>
-            <button
-              className="rail-btn"
-              aria-pressed={drawing.on}
-              disabled={!src || busy}
-              title="Desenhar por cima do vídeo (D)"
-              onClick={toggleDrawing}
-            >
-              <Brush size={19} />
-              <span>Desenhar</span>
-            </button>
-          </fieldset>
-          <span className="rail-sep" />
-          {VIEWS.map(([key, label, Icon]) => (
-            <button
-              key={key}
-              className="rail-btn"
-              aria-pressed={inspector === key}
-              onClick={() => openView(key)}
-            >
-              <Icon size={19} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
         <section className={`stage ${placingNow ? 'placing' : ''}`}>
           {src ? (
             <div
@@ -2051,8 +2038,15 @@ export default function Studio() {
                     )}
                   </div>
                 ))}
-              {inspector === 'summary' && <TimingSummary project={p} />}
-              {inspector === 'summary' && (
+              {inspector === 'times' && (
+                <StrokeComparison
+                  key={src}
+                  project={p}
+                  disabled={busy || !src}
+                  replay={stable.replay}
+                />
+              )}
+              {inspector === 'times' && (
                 <div className="notes">
                   <label className="field-label" htmlFor="notes">
                     Notas
@@ -2068,14 +2062,6 @@ export default function Studio() {
                     }}
                   />
                 </div>
-              )}
-              {inspector === 'compare' && (
-                <StrokeComparison
-                  key={src}
-                  project={p}
-                  disabled={busy || !src}
-                  replay={stable.replay}
-                />
               )}
               {inspector === '3d' && (
                 <Pose3D project={p} time={time} available={!!src && inSegment && !busy} />

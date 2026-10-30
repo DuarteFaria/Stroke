@@ -4,13 +4,13 @@ Stroke is a local kayak technique studio for reviewing sprint footage. It tracks
 
 The app is currently a **desktop beta (v0.2.1)**, with build targets for Windows x64 and Apple Silicon Macs (M1 and newer). Analysis and project data stay on the computer; no account or cloud upload is required.
 
-![Stroke editor: video, tool rail and timeline dock](docs/screenshots/body-analysis.png)
+![Stroke editor: video, panel tabs and timeline dock](docs/screenshots/body-analysis.png)
 
 ## Current features
 
 **Editor layout**
 
-- The video is always the largest thing on screen and the page never scrolls. A slim top bar, a tool rail on the left (**Deteção**, **Ideal**, **Desenhar**, **Resumo**, **Comparar**, **Vista 3D**) and a collapsible inspector on the right.
+- The video is always the largest thing on screen and the page never scrolls. A slim top bar whose tabs (**Deteção**, **Tempos**, **Vista 3D**) open and close the inspector on the right; with it closed the video takes the full width. **Editar ideal** and **Desenhar** sit next to **Apresentar** on the transport bar.
 - A timeline dock with one shared time axis and fixed lanes: **Trecho** (draggable grips), **Esquerda** and **Direita** (entries, exits and time in the water), **Edições**, **Avisos**, **Transições** and **Desenhos**.
 - A whole-clip map above the lanes shows the trecho, cuts, marks and playhead. Drag its window to pan; zoom with the buttons, **+**/**−** or the mouse wheel (Shift+wheel pans). Analysed clips longer than 30 s open on a 20 s window.
 - **Apresentar** (**F**) leaves only the video and transport, for showing the athlete. **?** lists every shortcut.
@@ -27,8 +27,7 @@ The app is currently a **desktop beta (v0.2.1)**, with build targets for Windows
 - One-click entry and exit marks: keys **1**–**4** mark left/right entry/exit, as do the buttons above the lanes
 - Drag a mark along its lane to move it, or step it by single frames; **Delete**/**Backspace** removes the chosen mark or transition. Marks never land inside a transition
 - Confirm, replay in slow motion, change side, ignore/restore, all undoable
-- **Resumo**: cadence and mean left/right time in the water from confirmed marks
-- **Comparar**: per-stroke timing, left/right averages and stroke replay, grouped by camera shot when the clip has cuts. Replaying a stroke restores the previous speed afterwards
+- **Tempos**: cadence, left/right averages, per-stroke timing and stroke replay from confirmed marks, grouped by camera shot when the clip has cuts, plus the project notes. Replaying a stroke restores the previous speed afterwards
 
 **Drawing over the video**
 
@@ -71,7 +70,7 @@ GitHub Actions builds and publishes both installers after merges into main. Down
 2. Choose **Detetar a minha remada** to track the athlete. Analysis finds camera cuts but does not add stroke marks.
 3. Mark entries and exits with **1**–**4** or the buttons above the lanes. Click a mark to replay it in slow motion, then **Confirmar**, **Ajustar** or **Remover**; drag it to move it, **Delete** to remove it.
 4. Drag any joint on the video to correct it. **Ideal** sketches the target pose; **Desenhar** draws over the video for the athlete.
-5. Read the timings in **Resumo** and **Comparar**, and use **Apresentar** to review with the athlete.
+5. Read the timings in **Tempos**, and use **Apresentar** to review with the athlete.
 6. Save the session as a `.stroke.json` project with **Guardar** or `Ctrl+S`.
 
 Project files contain analysis and edits, but not the source video. Keep the original footage alongside the project or reconnect it when prompted.
