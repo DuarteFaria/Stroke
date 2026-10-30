@@ -3,12 +3,6 @@
 @import 'shadcn/tailwind.css';
 
 
-/* Timing summary, shown in the inspector. */
-.timing-summary p { font-size: var(--type-xs); color: var(--muted); margin: 0 0 6px; }
-.timing-summary dl { display: flex; flex-direction: column; gap: 18px; margin: 18px 0 0; }
-.timing-summary dt { font-size: var(--type-xs); color: var(--muted); }
-.timing-summary dd { font-size: var(--type-lg); margin: 4px 0 0; font-variant-numeric: tabular-nums; }
-
 /* ----------------------------------------------------------------- palette
    The chrome is warm neutral on purpose. Saturated colour is reserved for the
    data drawn over the video: one hue per limb, orange for the proposed
@@ -329,7 +323,7 @@ kbd {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 /* Icon-only, quiet: the theme is a preference, not part of the working loop. */
 .theme-toggle {
@@ -720,6 +714,9 @@ h3 {
    stroke (water solid, recovery faded) that replays it on click. */
 .stroke-comparison { margin: 0; padding: 0; font-variant-numeric: tabular-nums; }
 .stroke-comparison p { margin: 0; color: var(--muted); font-size: var(--type-xs); line-height: var(--lh-loose); }
+.comparison-rate { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 12px; }
+.comparison-rate dt { color: var(--muted); font-size: var(--type-xs); }
+.comparison-rate dd { margin: 0; font-size: var(--type-lg); }
 .stroke-comparison .comparison-verdict { margin-bottom: 12px; color: var(--text); font-size: var(--type-sm); }
 .comparison-empty { padding: 14px; border-radius: var(--round-control); background: var(--sunk); }
 .comparison-table { width: 100%; border-collapse: collapse; font-size: var(--type-sm); }
@@ -764,8 +761,8 @@ h3 {
 
 /* =========================================================== editor layout
    Time against tools. The video takes every pixel the chrome does not need:
-   a slim bar on top, the tool rail on the left, an inspector on the right
-   that only opens when the chosen tool has something to set, and the
+   a slim bar on top whose tabs open the inspector on the right (and close
+   it again, so the video gets the whole width), and the
    timeline dock along the bottom with one shared time axis. */
 .studio {
   height: 100dvh;
@@ -826,7 +823,6 @@ h3 {
 .history {
   display: inline-flex;
   gap: 2px;
-  margin-right: 4px;
 }
 .history button,
 .topbar .theme-toggle {
@@ -843,77 +839,48 @@ h3 {
 
 /* ---------------------------------------------------------------- workspace */
 .workspace {
-  --rail: 70px;
   display: grid;
-  grid-template-columns: var(--rail) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
 }
 .workspace[data-inspector] {
-  grid-template-columns: var(--rail) minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 280px;
 }
-.workspace[data-inspector='compare'],
 .workspace[data-inspector='3d'] {
-  grid-template-columns: var(--rail) minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
 }
 
-/* --------------------------------------------------------------- tool rail */
-.rail {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: none;
+/* ------------------------------------------------------------- panel tabs
+   One tab per panel. A tab opens its panel and closes it again. Tabs sit as
+   far apart as every other header button; the margin sets the group off. */
+.view-tabs {
+  display: inline-flex;
+  gap: var(--space-2);
+  margin: 0 var(--space-2);
 }
-.rail-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-}
-.rail-btn {
-  position: relative;
-  flex: none;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-  min-height: 54px;
-  padding: 7px 2px;
+.view-tabs button {
+  gap: 6px;
   border-color: transparent;
-  background: transparent;
+  background: none;
   color: var(--muted);
-  font-size: var(--type-xs);
 }
-.rail-btn:hover:not(:disabled) {
+.view-tabs button:hover:not(:disabled) {
   background: var(--control);
   color: var(--text);
 }
-.rail-btn[aria-pressed='true'] {
+.view-tabs button[aria-pressed='true'] {
   background: var(--control-hover);
   border-color: var(--control-line);
   color: var(--text);
-  font-weight: var(--weight-strong);
 }
-/* A plain dot, not a colour: this video still needs its first analysis. */
-.rail-btn[data-attention]::after {
+/* A plain dot, not a colour: this video still needs its first detection. */
+.view-tabs button[data-attention]::after {
   content: '';
-  position: absolute;
-  top: 8px;
-  right: 14px;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--text);
-}
-.rail-sep {
-  flex: none;
-  height: 1px;
-  margin: 5px 10px;
-  background: var(--line);
 }
 
 /* ------------------------------------------------------------------- stage */
@@ -1040,11 +1007,6 @@ h3 {
 .inspector-body > * {
   flex: none;
 }
-.inspector .timing-summary {
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
 .setup {
   display: flex;
   flex-direction: column;
@@ -1163,10 +1125,12 @@ textarea {
   background: var(--panel);
   user-select: none;
 }
+/* One rhythm, as in the header: boxes sit 8 px apart, checkboxes and groups
+   16 px. The help button opens the group of buttons on the right. */
 .dock-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-2);
   min-height: 44px;
   padding: 5px 10px;
   border-bottom: 1px solid var(--line-soft);
@@ -1174,7 +1138,7 @@ textarea {
 .transport {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
 }
 .transport button {
   padding: 6px 9px;
@@ -1186,12 +1150,12 @@ textarea {
   min-width: 62px;
 }
 .transport .toggle {
-  margin-left: 6px;
+  margin-left: var(--space-2);
 }
 .clock {
   display: flex;
   gap: 5px;
-  margin: 0 6px;
+  margin: 0 var(--space-1);
   font:
     var(--type-sm) Consolas,
     monospace;
@@ -1203,13 +1167,14 @@ textarea {
 .layers {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-4);
   min-width: 0;
   margin: 0 0 0 auto;
   padding: 0;
   border: 0;
 }
 .dock-head .shortcuts {
+  margin-left: var(--space-2);
   gap: 6px;
   padding: 5px 7px;
   color: var(--muted);
@@ -1282,7 +1247,7 @@ textarea {
 .dock-context {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   /* Fixed, so swapping marking and a picked mark never moves the video. */
   height: 40px;
   padding: 0 10px;
@@ -1331,7 +1296,7 @@ textarea {
   flex: none;
   width: 1px;
   height: 22px;
-  margin: 0 6px;
+  margin: 0 var(--space-2);
   background: var(--line);
 }
 .ctx-why {
@@ -1353,11 +1318,13 @@ textarea {
   border: 0;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  margin-right: 8px;
+  gap: var(--space-2);
+}
+.mark-side + .mark-side {
+  margin-left: var(--space-2);
 }
 .mark-name {
-  margin: 0 2px 0 -2px;
+  margin-left: -2px;
   color: var(--muted);
   font-size: var(--type-xs);
 }
@@ -1855,12 +1822,6 @@ textarea {
 
 /* ------------------------------------------------------------- tighter fits */
 @media (max-height: 800px) {
-  .rail-btn {
-    min-height: 44px;
-    padding: 5px 2px;
-    gap: 3px;
-    font-size: 11px;
-  }
   .dock-head {
     min-height: 40px;
     padding: 3px 10px;
@@ -1896,24 +1857,22 @@ textarea {
 }
 @media (max-width: 1100px) {
   .workspace[data-inspector] {
-    grid-template-columns: var(--rail) minmax(0, 1fr) 256px;
+    grid-template-columns: minmax(0, 1fr) 256px;
   }
-  .workspace[data-inspector='compare'],
   .workspace[data-inspector='3d'] {
-    grid-template-columns: var(--rail) minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 300px;
   }
   .clock span,
   .topbar .file small {
     display: none;
   }
-  .dock-head,
   .layers {
-    gap: 10px;
+    gap: var(--space-3);
   }
 }
 @media (max-width: 960px) {
   .transport .toggle {
-    margin-left: 2px;
+    margin-left: 0;
   }
 }
 /* Phones and narrow browser windows: stack instead of squeezing. */
@@ -1928,26 +1887,13 @@ textarea {
     flex-wrap: wrap;
     padding: 8px 0;
   }
-  .workspace,
+  .header-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
   .workspace[data-inspector],
-  .workspace[data-inspector='compare'],
   .workspace[data-inspector='3d'] {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .rail {
-    flex-direction: row;
-    overflow-x: auto;
-  }
-  .rail-group {
-    flex-direction: row;
-  }
-  .rail-btn {
-    width: 66px;
-  }
-  .rail-sep {
-    width: 1px;
-    height: auto;
-    margin: 8px 3px;
   }
   .stage {
     height: 58vw;
@@ -1981,20 +1927,6 @@ textarea {
   }
   .topbar {
     height: 42px;
-  }
-  .rail-btn {
-    min-height: 0;
-    padding: 4px 2px;
-    gap: 2px;
-    font-size: 10.5px;
-    line-height: 1.25;
-  }
-  .rail-btn svg {
-    width: 17px;
-    height: 17px;
-  }
-  .rail-sep {
-    margin: 3px 10px;
   }
   .dock-head {
     min-height: 36px;
@@ -2352,13 +2284,32 @@ textarea {
 .video-wrap:has(.drawing-toggle) .angle-chips {
   top: 52px;
 }
+.dock-head .modes {
+  display: flex;
+  gap: var(--space-2);
+}
+.dock-head .modes button,
 .dock-head .present {
   flex: none;
   padding: 6px 11px;
   font-size: var(--type-sm);
 }
+.dock-head .modes button[aria-pressed='true'],
 .dock-head .present[aria-pressed='true'] {
   border-color: var(--text);
+}
+/* Below 1260 px the layer toggles need the room: these three keep their icon,
+   and their name stays in the tooltip and for screen readers. */
+@media (max-width: 1260px) {
+  .dock-head .modes span,
+  .dock-head .present span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* ------------------------------------------------------------ presenting
@@ -2368,8 +2319,8 @@ textarea {
   padding-top: 10px;
 }
 .studio[data-present] .topbar,
-.studio[data-present] .rail,
 .studio[data-present] .inspector,
+.studio[data-present] .dock-head .modes,
 .studio[data-present] .dock-context,
 .studio[data-present] .lane:not(.lane-ruler),
 .dock[data-folded] .dock-context,

@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { shotAt, type Project } from '@/lib/motion';
-import { comparisonStats, comparisonStrokes, type ComparedStroke } from '@/lib/strokes';
+import { comparisonStats, comparisonStrokes, strokeSummary, type ComparedStroke } from '@/lib/strokes';
 
 const SIDES = [['Left', 'Esq.'], ['Right', 'Dir.']] as const;
 const clock = (t: number) => `${Math.floor(t / 60)}:${Math.floor(t % 60).toString().padStart(2, '0')}`;
@@ -17,16 +17,20 @@ function verdict(left: number | null, right: number | null) {
 }
 
 /**
- * Duas perguntas: um lado é diferente do outro, e qual pagaiada foge às
- * restantes. Cada pagaiada é uma barra (água cheia, recuperação esbatida)
+ * Os tempos numa só vista: a cadência em cima, e depois duas perguntas — um
+ * lado é diferente do outro, e qual remada foge às restantes. Cada pagaiada é uma barra (água cheia, recuperação esbatida)
  * que se carrega para a rever no vídeo.
  */
 export default memo(function StrokeComparison({project: p, disabled, replay}: {
   project: Project; disabled: boolean; replay: (a: number,b: number) => void;
 }) {
   const strokes = useMemo(() => comparisonStrokes(p), [p]);
+  const rate = useMemo(() => strokeSummary(p).rate, [p]);
+  // Só com entradas já há cadência, mesmo antes de haver remadas para comparar.
+  const cadence = <dl className="comparison-rate"><dt>Cadência</dt><dd>{rate === null ? '—' : `${rate.toFixed(0)} /min`}</dd></dl>;
   if (!strokes.length)
     return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar remadas">
+      {rate !== null && cadence}
       <p className="comparison-empty">Marca a entrada e a saída da pagaia (teclas 1–4) para comparar as remadas.</p>
     </section>;
   const bySide = SIDES.map(([side]) => strokes.filter(s => s.side === side));
@@ -57,6 +61,7 @@ export default memo(function StrokeComparison({project: p, disabled, replay}: {
     </button>
   </li>;
   return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar remadas">
+    {cadence}
     {say && <p className="comparison-verdict">{say}</p>}
     <table className="comparison-table">
       <caption className="sr-only">Médias por lado</caption>
