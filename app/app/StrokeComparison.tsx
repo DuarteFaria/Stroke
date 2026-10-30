@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { shotAt, type Project } from '@/lib/motion';
-import { comparisonStats, comparisonStrokes, strokeSummary, type ComparedStroke } from '@/lib/strokes';
+import { comparisonStats, comparisonStrokes, reviewed, strokeSummary, type ComparedStroke } from '@/lib/strokes';
 
 const SIDES = [['Left', 'Esq.'], ['Right', 'Dir.']] as const;
 const clock = (t: number) => `${Math.floor(t / 60)}:${Math.floor(t % 60).toString().padStart(2, '0')}`;
@@ -31,7 +31,11 @@ export default memo(function StrokeComparison({project: p, disabled, replay}: {
   if (!strokes.length)
     return <section id="stroke-comparison" className="stroke-comparison" aria-label="Comparar remadas">
       {rate !== null && cadence}
-      <p className="comparison-empty">Marca a entrada e a saída da pagaia (teclas 1–4) para comparar as remadas.</p>
+      <p className="comparison-empty">
+        {p.events.some((e) => e.review !== 'skipped' && !reviewed(e) && e.t >= p.segment[0] && e.t <= p.segment[1])
+          ? 'Há marcações por confirmar. Escolhe cada uma e carrega em Confirmar para comparar as remadas.'
+          : 'Marca a entrada e a saída da pagaia (teclas 1–4) para comparar as remadas.'}
+      </p>
     </section>;
   const bySide = SIDES.map(([side]) => strokes.filter(s => s.side === side));
   const rows = metrics.map(m => ({...m, stats: bySide.map(list => comparisonStats(list.map(s => s[m.key])))}))
